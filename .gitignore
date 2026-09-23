@@ -8,4 +8,4 @@ artifacts/
 *.log
 *.tsbuildinfo
 .DS_Store
-
+*.tgz

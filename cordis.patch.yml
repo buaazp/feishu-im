@@ -1,0 +1,4 @@
+# This bundle owns the runner of a dedicated, base-backed dsh profile.
+- insert:
+    - id: headless-runner
+      name: dsh-feishu-im
