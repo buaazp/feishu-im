@@ -1,5 +1,7 @@
 # Standalone Feishu IM plugin
 
+The next release follows [Direct Feishu integration](direct-integration.md). The completed initial-release plan is retained below.
+
 ## Objective
 
 Deliver an independently installable, MIT-licensed dsh plugin that reuses lark-cli credentials to run tasks from authorized Feishu private chats. Users install a bundle, configure it once, check readiness, and launch through a dedicated dsh profile. The project has no dependency on a Harness source checkout or unpublished workspace packages.

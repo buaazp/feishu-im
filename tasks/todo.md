@@ -1,5 +1,18 @@
 # Delivery checks
 
+## Direct integration
+
+- [x] Verify official SDK QR registration, dsh settings, presets and interaction contracts.
+- [ ] Direct API transport with cancellation, idempotency and real SDK connection tests.
+- [ ] Additive plugin with live settings and preserved admission/lifecycle guarantees.
+- [ ] Milestone updates and scoped interactive approvals/questions.
+- [ ] QR/manual settings page, explicit pairing and secret-preserving persistence.
+- [ ] Bilingual migration/operations documentation, metadata and CLI help.
+- [ ] Packed installation and browser verification using fake external endpoints.
+- [ ] Required checks, package checks, review and reviewable commits.
+
+## Initial release
+
 - [x] Extract the driver; install published dependencies; pass unit tests and type checking.
 - [x] Ship a dsh bundle and verify installation into a clean dedicated profile.
 - [x] Implement setup and doctor with safe profile updates and actionable diagnostics.
