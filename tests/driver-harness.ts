@@ -10,8 +10,8 @@ import JsonlPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SessionQuery from '@deepseek-ai/dsh-session-query-sqlite'
 import { expect, vi } from 'vitest'
 import { Config } from '../src/config.ts'
-import { LarkDriver } from '../src/driver.ts'
-import { LarkCli } from '../src/transport.ts'
+import { FeishuDriver } from '../src/driver.ts'
+import type { MessageTransport } from '../src/feishu-api.ts'
 import { incoming } from './fixture.ts'
 import { TestModel } from './fixtures/model.ts'
 
@@ -27,10 +27,10 @@ export async function createDriverHarness(cleanup: Array<() => Promise<unknown>>
   await ctx.plugin(AgentLoop, { agents: [] })
   const model = new TestModel()
   ctx.llm.registerAdapter(['lark-test'], model)
-  const config: Config = Config({ profile: 'test-app', cwd: root, allowedUsers: ['ou_owner'], ...patch })
-  const cli = new LarkCli(ctx, config)
+  const config: Config = Config({ appId: 'cli_0123456789abcdef', appSecret: 'fake-secret', cwd: root, allowedUsers: ['ou_owner'], ...patch })
+  const cli: MessageTransport = { reply: vi.fn(), card: vi.fn(async () => 'om_progress'), updateCard: vi.fn(async () => {}) }
   const reply = vi.spyOn(cli, 'reply').mockResolvedValue()
-  const driver = new LarkDriver(ctx, config, cli)
+  const driver = new FeishuDriver(ctx, config, cli)
   cleanup.push(() => driver.dispose())
   const send = (id: string, text: string, sender?: string) => { driver.receive(JSON.stringify(incoming(id, text, sender))) }
   const waitReply = async (phase: string, text: string) => {
@@ -39,5 +39,5 @@ export async function createDriverHarness(cleanup: Array<() => Promise<unknown>>
     }, { timeout: 20_000 })
   }
   const idle = async () => { await vi.waitFor(() => { expect(ctx.agents.roots()).toHaveLength(0) }, { timeout: 20_000 }) }
-  return { ctx, model, config, driver, reply, send, waitReply, idle }
+  return { ctx, cli, model, config, driver, reply, send, waitReply, idle }
 }

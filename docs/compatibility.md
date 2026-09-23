@@ -1,18 +1,19 @@
 # Compatibility
 
-| Component | Supported baseline |
+| Component | Supported / validated version |
 | --- | --- |
-| dsh and Harness packages | `0.1.7-alpha.2` |
+| dsh / Harness | Published `0.1.7-alpha.2` |
 | Cordis | `4.0.4` |
-| Node.js | `^22.19.0` or `>=24.0.0` |
-| pnpm | `10+`; local installation verified with `12.5.1` |
-| lark-cli | `1.0.78` or a compatible newer release |
-| Chat | Feishu bot private text messages |
+| Node.js | Supported: `^22.19.0` or `>=24.0.0`; local validation: `26.7.0` |
+| Feishu SDK | `@larksuiteoapi/node-sdk@1.74.0` |
+| pnpm | Profile installation tested with `12.5.1` |
+| Application | Enterprise self-built Feishu or Lark bot, long connection |
+| Messages | Authorized private human text; interactive card callbacks |
 
-Harness APIs are pre-stable. This release pins the published versions it builds and tests against. npm's dsh `latest` tag currently points to an older rc release; install the documented exact version. Do not combine libraries copied from a source checkout with an installed CLI.
+There is no lark-cli runtime, executable or authentication dependency. QR app creation directly follows the official registration API implemented by SDK 1.74.0, with cancellable HTTP; tenant policy and platform rollout determine whether it is available and whether extra permissions/callbacks are prefilled. Manual App ID / App Secret setup remains available.
 
-The plugin uses lark-cli's public `profile list`, `auth status --json --verify`, `event consume im.message.receive_v1 --as bot`, and `im +messages-reply` commands. `profile list` returns JSON without `--json`; `auth status` reports both identities and does not accept `--as`. An expired user OAuth token does not prevent bot transport.
+The bundle is additive and supports the dsh Web profile. Its browser entry uses published client bundle/slot contracts. Configuration routes use authenticated Connection Fetch registration, sharing dsh's origin and session checks. The `/api` RPC interceptor itself has a single owner in this dsh version, so the plugin contributes exact routes instead of replacing that owner.
 
-Tests run against published npm packages. Automated integration uses a real dsh profile and substitutes only external model and Feishu endpoints. Live chat validation requires an authorized app and a human message; it is not run in CI.
+Harness APIs are pre-stable. Upgrade their pinned versions together and rerun Agent, browser, lifecycle, and packed-profile tests. Never use sibling workspace links or replacement runtime APIs.
 
-To change the supported Harness version, update the pinned dependencies together, regenerate the lockfile, and rerun unit, package-installation, and real-profile tests. A version bump alone does not establish compatibility.
+pnpm may request a build-script decision for the SDK's transitive `protobufjs` dependency. Its optional script reports dependent version ranges. Installation and runtime are verified with that script explicitly denied in the isolated test profile.

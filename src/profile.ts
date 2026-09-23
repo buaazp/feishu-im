@@ -6,7 +6,7 @@ import { isMap, isSeq, parseDocument, YAMLMap, type Document } from 'yaml'
 import { Config, validateConfig } from './config.ts'
 
 /** Application-driver row audited by dsh at startup. */
-export const RUNNER_ID = 'headless-runner'
+export const RUNNER_ID = 'feishu-im'
 /** The installable dsh bundle managed by this command. */
 export const PACKAGE_NAME = 'dsh-feishu-im'
 
@@ -25,7 +25,7 @@ async function readPatch(directory: string): Promise<string> {
   }
 }
 
-/** Validate that management is running inside a dedicated, installed dsh profile. */
+/** Validate that management is running inside a installed dsh profile. */
 export async function assertProfile(directory: string): Promise<void> {
   let manifest: unknown
   try {
@@ -42,9 +42,7 @@ export async function assertProfile(directory: string): Promise<void> {
   if (!Array.isArray(bundles) || !bundles.includes(PACKAGE_NAME)) {
     throw new Error('Install dsh-feishu-im into this profile before configuring it.')
   }
-  if (bundles.some(value => ['@deepseek-ai/dsh-headless', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-sdk-app', '@deepseek-ai/dsh-acp-app'].includes(String(value)))) {
-    throw new Error('Use a new dedicated profile; this profile already has another application runner.')
-  }
+
 }
 
 function parsePatch(source: string) {
@@ -55,22 +53,22 @@ function parsePatch(source: string) {
     throw new Error('cordis.patch.yml must be a valid YAML patch list. Fix it before running setup.')
   }
   const rows = document.contents.items.filter(item => isMap(item) && item.get('id') === RUNNER_ID)
-  if (rows.length > 1) throw new Error('Multiple headless-runner overrides exist. Consolidate them before running setup.')
+  if (rows.length > 1) throw new Error('Multiple feishu-im overrides exist. Consolidate them before running setup.')
   const row = rows[0]
   if (isMap(row) && row.has('name') && row.get('name') !== PACKAGE_NAME) {
-    throw new Error('The profile overrides headless-runner with another plugin. Use a dedicated profile.')
+    throw new Error('The profile overrides feishu-im with another plugin.')
   }
   return { document, rows: document.contents, row: isMap(row) ? row : undefined }
 }
 
-/** Read the configured runner settings; expressions must be managed manually. */
+/** Read the configured channel settings; expressions must be managed manually. */
 export async function readConfiguration(directory: string): Promise<Config> {
   await assertProfile(directory)
   const { row } = parsePatch(await readPatch(directory))
-  if (row === undefined || row.get('disabled') === true) throw new Error('The Feishu runner is not configured or is disabled. Run feishu-im setup.')
+  if (row === undefined || row.get('disabled') === true) throw new Error('The Feishu channel is not configured or is disabled. Run feishu-im setup.')
   const node = row.get('config', true)
-  if (!isMap(node)) throw new Error('Runner config must be a mapping. Run feishu-im setup.')
-  const config: Config = Config(node.toJSON() as Partial<Config>)
+  if (!isMap(node)) throw new Error('Channel config must be a mapping. Run feishu-im setup.')
+  const config: Config = Config(node.toJSON().account as Partial<Config>)
   validateConfig(config)
   return config
 }
@@ -105,10 +103,13 @@ export async function writeConfiguration(directory: string, config: Partial<Conf
   await update(directory, (patch) => {
     const row = patch.row ?? new YAMLMap()
     const existing = row.get('config', true)
-    if (existing !== undefined && !isMap(existing)) throw new Error('Runner config must be a mapping; edit the profile manually.')
+    if (existing !== undefined && !isMap(existing)) throw new Error('Channel config must be a mapping; edit the profile manually.')
     const settings = existing ?? new YAMLMap()
-    for (const [key, value] of Object.entries(config)) settings.set(key, value)
-    validateConfig(Config(settings.toJSON() as Partial<Config>))
+    const account = settings.get('account', true) ?? new YAMLMap()
+    if (!isMap(account)) throw new Error('Channel account must be a mapping; edit the profile manually.')
+    for (const [key, value] of Object.entries(config)) account.set(key, value)
+    validateConfig(Config(account.toJSON() as Partial<Config>))
+    settings.set('account', account)
     row.set('id', RUNNER_ID)
     row.set('name', PACKAGE_NAME)
     row.set('disabled', false)
@@ -121,7 +122,7 @@ export async function writeConfiguration(directory: string, config: Partial<Conf
 export async function resetConfiguration(directory: string): Promise<void> {
   await update(directory, (patch) => {
     if (patch.row === undefined) return
-    if (patch.row.get('name') !== PACKAGE_NAME) throw new Error('The runner row is not owned by feishu-im; edit it manually.')
+    if (patch.row.get('name') !== PACKAGE_NAME) throw new Error('The channel row is not owned by feishu-im; edit it manually.')
     patch.rows.items = patch.rows.items.filter(item => item !== patch.row)
   })
 }

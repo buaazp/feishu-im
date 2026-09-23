@@ -2,68 +2,53 @@
 
 [中文](configuration.zh-CN.md) · [Quick start](../README.md)
 
-Manage the profile with `dsh plugin --profile feishu exec feishu-im setup`. Setup merges only its own runner settings, preserving unrelated YAML rows, comments, and `!!js` expressions. It uses a lock, a private temporary file, and atomic replacement; an intervening edit causes an error. Stop dsh before changing its configuration, then restart it.
-
-## Profile patch
-
-The user patch normally lives at `~/.dsh/profiles/feishu/cordis.patch.yml`; a custom `DSH_HOME` changes the root. The bundle creates the runner. Setup configures it using this override:
+The bundle inserts an additive `feishu-im` entry. Its `config.account` is one atomic, live setting. The dsh page verifies bot credentials before saving and stores the secret in the profile with mode `0600`. Keep the profile outside the bot's workspace and out of Git. Blank credentials leave the channel unconfigured without stopping dsh.
 
 ```yaml
-- id: headless-runner
-  name: dsh-feishu-im
-  disabled: false
+- id: feishu-im
   config:
-    profile: YOUR_APP_PROFILE
-    command: [lark-cli]
-    cwd: /absolute/task/directory
-    allowedUsers: [ou_YOUR_HUMAN_OPEN_ID]
-    locale: en
+    account:
+      appId: cli_0123456789abcdef
+      appSecret: REPLACE_IN_THE_CONFIGURATION_PAGE
+      cwd: /absolute/task/workspace
+      allowedUsers:
+        - ou_EXPLICIT_HUMAN
 ```
 
-`headless-runner` is the application-driver id recognized by dsh's startup auditor. The module is `dsh-feishu-im`; keep both names as shown. Do not add a second runner row. Use one dedicated profile for this bundle.
-
-## Settings
-
-| Setting | Default | Meaning |
+| Field in `account` | Default | Meaning |
 | --- | --- | --- |
-| `profile` | Required | Existing lark-cli application profile, used for receipt and replies |
-| `cwd` | Required | Absolute, existing task directory; launch dsh from here |
-| `allowedUsers` | Required | Nonempty list of human `ou_...` open_ids for this app |
-| `command` | `[lark-cli]` | Executable plus fixed arguments; no shell expansion |
-| `locale` | `zh-CN` | Control replies: `zh-CN` or `en`; model answer language is unchanged |
-| `maxConversations` | `4` | Simultaneous conversations |
-| `maxPendingMessages` | `16` | Unstarted messages per conversation |
-| `maxConcurrentReplies` | `8` | Concurrent control and failure replies |
-| `maxRecordBytes` | `1048576` | Maximum CLI NDJSON record / collected RPC stream bytes |
-| `maxReplyBytes` | `12000` | UTF-8 bytes in complete reply JSON content; range 64–16000 |
-| `startupTimeoutMs` | `30000` | Deadline for the event-ready marker |
-| `requestTimeoutMs` | `30000` | Deadline for each reply request |
-| `taskTimeoutMs` | `600000` | Deadline for one submitted task, including continuations |
-| `graceMs` | `3000` | Subprocess shutdown grace before managed termination |
+| `appId` | empty | Enterprise self-built app ID. |
+| `appSecret` | empty | Secret; redacted from settings responses. |
+| `apiOrigin` | `https://open.feishu.cn` | Feishu or `https://open.larksuite.com`. Loopback HTTP is accepted for isolated tests only. |
+| `locale` | `zh-CN` | Bot control messages, `zh-CN` or `en`; model answers retain their language. |
+| `cwd` | empty | Absolute task workspace; choose a readable/writable directory outside the profile. |
+| `allowedUsers` | `[]` | Explicit human open_ids. Empty means nobody can start tasks. |
+| `legacyNamespace` | empty | Explicit pre-0.2 CLI profile name for deriving old conversation ids. Does not import credentials. |
+| `maxConversations` | `4` | Maximum active private conversation workers. |
+| `maxPendingMessages` | `16` | Maximum queued tasks per conversation. |
+| `maxConcurrentReplies` | `8` | Concurrent control/error replies. |
+| `maxReplyBytes` | `12000` | UTF-8 bytes per text reply's JSON content; range 64–16000. |
+| `startupTimeoutMs` | `30000` | Initial connection readiness deadline. |
+| `requestTimeoutMs` | `30000` | Deadline per HTTP request. |
+| `taskTimeoutMs` | `600000` | Maximum task interval including tools and decisions. |
+| `progressIntervalMs` | `1000` | Minimum interval between milestone snapshots; slow delivery coalesces pending updates. |
+| `interactionTimeoutMs` | `300000` | Decision-card timeout; bounded further by task cancellation. |
 
-Limits and durations are positive integers up to 2147483647, except the narrower reply-byte range. When queues or conversation slots are full, users must resend later. Control replies themselves may be dropped at their concurrency limit; the log records that condition.
+Resource counts and millisecond limits must be positive integers. Changing an account cancels and joins the old channel, tasks and pending decisions before connecting the new one. Sessions remain on disk. Configuration writes use dsh settings revisions so stale editors cannot overwrite new credentials or authorization.
 
-Use `--allow-user` repeatedly or with comma-separated ids. Setup removes duplicates. A suggested logged-in identity becomes authorized only after an explicit prompt answer; noninteractive setup always requires the flag. Use `--lark-command /absolute/path/to/lark-cli` when a service manager has a different PATH.
+The application id, workspace, chat id and human open_id determine a Session id. The durable user message id remains `lark:<message_id>` for backwards deduplication compatibility. `legacyNamespace` only changes the application component of that hash; it cannot migrate preset composition or Session storage. A preset-free old Session requires its original preset-free deployment.
 
-Advanced settings are edited in YAML. The management commands validate literal runner mappings; dynamic expressions inside the runner configuration are for manual management and may not be readable by `doctor`. Unrelated rows containing expressions are preserved. Symlink patches are refused by setup; manage their targets yourself.
+The optional management executable never starts an Agent:
 
-## Model and permissions
+```sh
+# Run inside the installed profile via dsh. Provide the secret through stdin,
+# not as a command-line argument. Replace paths/ids for your deployment.
+secret-provider | dsh plugin --profile web exec feishu-im setup \
+  --app-id cli_0123456789abcdef --secret-stdin \
+  --workspace /absolute/task/workspace --allow-user ou_EXPLICIT_HUMAN
 
-The plugin inherits model providers, credentials, tools, skills, and permissions from its dsh profile. It does not copy another profile's model selection. The base defaults to `deepseek-official / deepseek-flash`. Use dsh's credential store or supply `DEEPSEEK_API_KEY` through your environment; never commit keys into this repository or profile examples.
-
-To use an already configured provider, add a separate override:
-
-```yaml
-- id: agent-default-model
-  config:
-    provider: YOUR_REGISTERED_PROVIDER
-    model: YOUR_MODEL_ID
+dsh plugin --profile web exec feishu-im doctor --json
+dsh plugin --profile web exec feishu-im reset
 ```
 
-Provider registration and its credential reference must also exist in this profile. Follow the [Harness documentation](https://github.com/deepseek-ai/deepseek-harness) for provider-specific setup. `doctor` verifies only Feishu bot authentication, not model credentials or tool permissions.
-
-The base workspace permission root comes from the directory where you launch dsh. Run `cd /absolute/task/directory` before `dsh --profile feishu`. Authorized senders share these permissions and this directory. The plugin does not provide remote tool-approval buttons. Keep a suitable permission policy for unattended work.
-
-## Conversation continuity
-
-The saved Session id depends on the lark-cli profile name, workspace path, private chat id, and sender id. Changing any of these selects a different history. Reinstalling the same plugin with the same settings and Session store preserves continuity. Uninstalling or resetting configuration does not delete Session files.
+`setup` also accepts `--locale`, `--lark` and `--legacy-namespace`. CLI edits require a dsh restart. Use the Web page for QR setup and live changes. `doctor` checks configuration, workspace and bot credentials without sending messages or opening the event connection. `reset` removes only this plugin's override and keeps Session history.

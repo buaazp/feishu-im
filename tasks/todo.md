@@ -3,13 +3,13 @@
 ## Direct integration
 
 - [x] Verify official SDK QR registration, dsh settings, presets and interaction contracts.
-- [ ] Direct API transport with cancellation, idempotency and real SDK connection tests.
-- [ ] Additive plugin with live settings and preserved admission/lifecycle guarantees.
-- [ ] Milestone updates and scoped interactive approvals/questions.
-- [ ] QR/manual settings page, explicit pairing and secret-preserving persistence.
-- [ ] Bilingual migration/operations documentation, metadata and CLI help.
-- [ ] Packed installation and browser verification using fake external endpoints.
-- [ ] Required checks, package checks, review and reviewable commits.
+- [x] Direct API transport with cancellation, idempotency and real SDK connection tests.
+- [x] Additive plugin with live settings and preserved admission/lifecycle guarantees.
+- [x] Milestone updates and scoped interactive approvals/questions.
+- [x] QR/manual settings page, explicit pairing and secret-preserving persistence.
+- [x] Bilingual migration/operations documentation, metadata and CLI help.
+- [x] Packed installation and browser verification using fake external endpoints.
+- [x] Required checks, package checks, review and reviewable commits.
 
 ## Initial release
 

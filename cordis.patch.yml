@@ -1,4 +1,4 @@
-# This bundle owns the runner of a dedicated, base-backed dsh profile.
+# Add a channel beside the profile's existing application runner.
 - insert:
-    - id: headless-runner
+    - id: feishu-im
       name: dsh-feishu-im

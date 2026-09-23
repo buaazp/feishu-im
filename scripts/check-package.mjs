@@ -15,9 +15,10 @@ for (const version of Object.values({ ...manifest.dependencies, ...manifest.peer
 }
 const [packed] = JSON.parse(execFileSync('npm', ['pack', '--ignore-scripts', '--dry-run', '--json'], { cwd: root, encoding: 'utf8' }))
 const files = new Set(packed.files.map(file => file.path))
-for (const required of ['dist/index.js', 'dist/index.d.ts', 'bin/feishu-im.mjs', 'cordis.patch.yml', 'LICENSE', 'NOTICE', 'README.md', 'README.zh-CN.md', 'docs/configuration.md', 'docs/configuration.zh-CN.md']) {
+for (const required of ['dist/index.js', 'dist/index.d.ts', 'dist/client.cjs', 'dist/client.d.ts', 'bin/feishu-im.mjs', 'cordis.patch.yml', 'LICENSE', 'NOTICE', 'README.md', 'README.zh-CN.md', 'docs/configuration.md', 'docs/configuration.zh-CN.md']) {
   assert(files.has(required), `Missing shipping file: ${required}`)
 }
+for (const removed of ['dist/transport.js', 'dist/lark-auth.js']) assert(!files.has(removed), `Obsolete CLI module: ${removed}`)
 for (const path of files) assert(!/^(node_modules|tests|tasks|coverage|artifacts|\.env|\.git)(\/|\.|$)/.test(path), `Unexpected shipping file: ${path}`)
 for (const path of ['docs/configuration.md', 'docs/configuration.zh-CN.md']) {
   const source = await readFile(join(root, path), 'utf8')

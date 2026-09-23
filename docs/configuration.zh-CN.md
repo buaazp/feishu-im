@@ -2,68 +2,53 @@
 
 [English](configuration.md) · [快速开始](../README.zh-CN.md)
 
-通过 `dsh plugin --profile feishu exec feishu-im setup` 配置 profile。向导只合并自己的 runner 参数，保留其他 YAML 行、注释和 `!!js` 表达式。更新采用锁、私有临时文件及原子替换；检测到外部编辑时会报错。修改前先停止 dsh，完成后重新启动。
-
-## Profile 配置文件
-
-用户配置通常位于 `~/.dsh/profiles/feishu/cordis.patch.yml`；设置 `DSH_HOME` 后使用对应根目录。安装包创建 runner，向导生成如下覆盖配置：
+插件添加 `feishu-im` 行，`config.account` 是一个整体原子更新的实时配置。页面先验证机器人凭据，再通过 dsh 保存，profile 配置文件权限为 `0600`。配置目录应放在机器人工作目录之外，不要提交到 Git。空凭据表示尚未配置，不会阻止 dsh 启动。
 
 ```yaml
-- id: headless-runner
-  name: dsh-feishu-im
-  disabled: false
+- id: feishu-im
   config:
-    profile: YOUR_APP_PROFILE
-    command: [lark-cli]
-    cwd: /absolute/task/directory
-    allowedUsers: [ou_YOUR_HUMAN_OPEN_ID]
-    locale: zh-CN
+    account:
+      appId: cli_0123456789abcdef
+      appSecret: 请在配置页填写真实密钥
+      cwd: /absolute/task/workspace
+      allowedUsers:
+        - ou_EXPLICIT_HUMAN
 ```
 
-`headless-runner` 是 dsh 启动审计识别的应用启动器 id，实际模块为 `dsh-feishu-im`。保留这两个名称，不要重复添加 runner。此插件应使用专用 profile。
-
-## 参数
-
-| 参数 | 默认值 | 含义 |
+| `account` 中的字段 | 默认值 | 含义 |
 | --- | --- | --- |
-| `profile` | 必填 | 已有 lark-cli 应用配置名称，接收和回复均使用它 |
-| `cwd` | 必填 | 已存在的任务目录绝对路径；从该目录启动 dsh |
-| `allowedUsers` | 必填 | 该应用下授权人类用户的 `ou_...` 列表，不可为空 |
-| `command` | `[lark-cli]` | 可执行文件及固定参数，不经过 shell 展开 |
-| `locale` | `zh-CN` | 控制提示语言：`zh-CN` 或 `en`；不改变模型答复语言 |
-| `maxConversations` | `4` | 同时运行的会话上限 |
-| `maxPendingMessages` | `16` | 每个会话等待启动的消息上限 |
-| `maxConcurrentReplies` | `8` | 状态、排队及错误提示的并发回复上限 |
-| `maxRecordBytes` | `1048576` | 单条 CLI NDJSON 记录或 RPC 收集流的字节上限 |
-| `maxReplyBytes` | `12000` | 完整回复 JSON 内容的 UTF-8 字节数上限，范围 64–16000 |
-| `startupTimeoutMs` | `30000` | 等待事件就绪标记的超时毫秒数 |
-| `requestTimeoutMs` | `30000` | 单次回复请求的超时毫秒数 |
-| `taskTimeoutMs` | `600000` | 单条任务及其续轮的超时毫秒数 |
-| `graceMs` | `3000` | 子进程关闭宽限毫秒数，之后由进程管理服务终止 |
+| `appId` | 空 | 企业自建应用 App ID。 |
+| `appSecret` | 空 | 应用密钥；配置查询不会返回此字段。 |
+| `apiOrigin` | `https://open.feishu.cn` | 飞书，或国际版 `https://open.larksuite.com`。仅为隔离测试接受回环 HTTP 地址。 |
+| `locale` | `zh-CN` | 控制消息语言，可选 `zh-CN`、`en`；不改变模型回答语言。 |
+| `cwd` | 空 | 任务绝对工作目录，应可读写并位于 profile 之外。 |
+| `allowedUsers` | `[]` | 明确授权的人类用户 open_id；空数组不允许任何人执行任务。 |
+| `legacyNamespace` | 空 | 为恢复旧会话而显式提供的 0.1 CLI profile 名；不导入凭据。 |
+| `maxConversations` | `4` | 同时活动的私聊会话上限。 |
+| `maxPendingMessages` | `16` | 每个会话尚未开始的任务队列上限。 |
+| `maxConcurrentReplies` | `8` | 控制和错误回复的并发上限。 |
+| `maxReplyBytes` | `12000` | 每条文本回复 JSON 内容的 UTF-8 字节上限，范围 64–16000。 |
+| `startupTimeoutMs` | `30000` | 首次连接就绪超时。 |
+| `requestTimeoutMs` | `30000` | 每次 HTTP 请求超时。 |
+| `taskTimeoutMs` | `600000` | 一次任务及其工具、确认操作的总时间上限。 |
+| `progressIntervalMs` | `1000` | 关键节点卡片快照的最小更新间隔；发送慢时合并待更新内容。 |
+| `interactionTimeoutMs` | `300000` | 交互卡片有效时间；任务取消会提前结束请求。 |
 
-除回复字节数的单独范围外，上限和时长均为不超过 2147483647 的正整数。队列或会话满时，用户需稍后重发；控制回复本身达到并发上限时也可能被丢弃，日志会记录该情况。
+数量与毫秒限制均须为正整数。更换配置时，插件会先取消并等待旧通道、任务、交互请求结束，再连接新应用。磁盘会话保留。保存使用 dsh 配置修订号，过期页面不能覆盖新凭据或授权名单。
 
-`--allow-user` 支持多次传入或用逗号分隔，向导会去重。向导发现的登录身份仅作为建议，必须明确回答后才授权；非交互运行必须传入白名单。服务管理器 PATH 不同时，用 `--lark-command /absolute/path/to/lark-cli` 指定绝对路径。
+应用 ID、工作目录、私聊 ID 和用户 open_id 一起确定 Session 身份。持久化消息 ID 保持 `lark:<message_id>`，便于兼容旧去重记录。`legacyNamespace` 只替换会话哈希的应用部分，不迁移 preset 组合或会话存储。没有 preset 的旧会话只能在原来没有 preset 的应用组合中继续。
 
-高级参数直接修改 YAML。管理命令验证字面量 runner 配置；runner 内部的动态表达式需手动维护，`doctor` 可能无法解析。其他配置行的表达式会被保留。向导拒绝修改符号链接形式的 patch，需自行维护其目标文件。
+可选管理命令不会启动 Agent：
 
-## 模型与权限
+```sh
+# 通过 stdin 提供密钥，不要将密钥放入命令行参数。
+# 替换为自己使用的密钥提供命令、目录和 ID。
+secret-provider | dsh plugin --profile web exec feishu-im setup \
+  --app-id cli_0123456789abcdef --secret-stdin \
+  --workspace /absolute/task/workspace --allow-user ou_EXPLICIT_HUMAN
 
-插件继承所属 dsh profile 的模型提供方、凭据、工具、skills 和权限，不会自动复制其他 profile 的模型选择。基础默认值是 `deepseek-official / deepseek-flash`。使用 dsh 凭据存储，或通过环境变量提供 `DEEPSEEK_API_KEY`；不要将密钥提交到仓库或配置示例。
-
-选择已注册的其他模型时，添加独立覆盖行：
-
-```yaml
-- id: agent-default-model
-  config:
-    provider: YOUR_REGISTERED_PROVIDER
-    model: YOUR_MODEL_ID
+dsh plugin --profile web exec feishu-im doctor --json
+dsh plugin --profile web exec feishu-im reset
 ```
 
-对应 provider 注册及凭据引用也必须存在于本 profile 中。具体配置见 [Harness 文档](https://github.com/deepseek-ai/deepseek-harness)。`doctor` 只验证飞书机器人身份，不验证模型凭据或工具权限。
-
-基础工作区权限根目录来自启动 dsh 时的当前目录，因此应先执行 `cd /absolute/task/directory`，再运行 `dsh --profile feishu`。所有授权用户共享这个目录及其权限。插件没有远程工具审批按钮，应为无人值守任务保留合适的权限策略。
-
-## 历史连续性
-
-会话 id 由 lark-cli profile 名称、任务目录、私聊 id 和用户 id 共同决定。修改任一项会选择不同历史。相同配置、相同 Session 存储下重新安装插件可继续原对话；重置和卸载不会删除 Session 文件。
+`setup` 还支持 `--locale`、`--lark`、`--legacy-namespace`。CLI 修改后重启 dsh；扫码和实时修改请使用配置页。`doctor` 检查配置、目录及机器人身份，不发消息，也不开启事件连接。`reset` 仅删除插件配置覆盖行，保留 Session 历史。

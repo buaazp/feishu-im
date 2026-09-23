@@ -1,51 +1,54 @@
-/** Opt-in Feishu private-chat task driver over the existing lark-cli authentication store. */
-
+/** Additive Feishu channel: the profile's existing dsh runner owns the application. */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type {} from '@deepseek-ai/dsh-cmdline'
-import { errorChain } from '@deepseek-ai/dsh-llm'
-import { Config, validateConfig } from './config.ts'
-import { LarkDriver } from './driver.ts'
-import { LarkCli } from './transport.ts'
+import type {} from '@deepseek-ai/dsh-settings'
+import { clientRequestSchema } from '@deepseek-ai/dsh-client-connection'
+import { readJson } from './feishu-api.ts'
+import { Config as AccountConfig, LiveConfig } from './config.ts'
+import { FeishuRuntime } from './runtime.ts'
+import { SetupManager } from './setup-manager.ts'
 
-export { Config } from './config.ts'
-
-/** Stable plugin name. */
+export { LiveConfig as Config } from './config.ts'
 export const name = 'feishu-im'
-/** Required task, history, and process services. */
-export const inject = ['agents', 'agentDefaultModel', 'sessions', 'sessionPersistence', 'sessionQuery', 'subprocess']
+export const inject = ['agents', 'agentDefaultModel', 'sessions', 'sessionPersistence', 'sessionQuery']
 
-/**
- * Mount a private-chat driver and bind every child and task to the plugin lifetime.
- * @param ctx - composed Harness application context.
- * @param config - validated deployment settings.
- */
-export function apply(ctx: Context, config: Config): void {
-  validateConfig(config)
-  const exit = ctx.get('appExit')
-  if (exit === undefined) throw new Error('feishu-im: launch through a dsh profile')
-  const cli = new LarkCli(ctx, config)
-  const driver = new LarkDriver(ctx, config, cli)
+export function apply(ctx: Context, config: LiveConfig): void {
+  if (ctx.get('appExit') === undefined) throw new Error('feishu-im: launch through a dsh profile')
+  const runtime = new FeishuRuntime(ctx)
+  const account = (): AccountConfig => { const value = config.account.get(); return { ...value, allowedUsers: [...value.allowedUsers] } }
+  ctx.on('loader/volatile-update', () => { void runtime.configure(account()) })
   ctx.effect(() => {
-    const lifetime = new AbortController()
-    const running = (async () => {
+    const controller = new AbortController()
+    const starting = (async () => {
       await ctx.get('loader')?.await()
-      lifetime.signal.throwIfAborted()
-      await ctx.subprocess.resolveExecutable(config.command[0] as string, undefined, lifetime.signal)
-      await cli.consume((line) => { driver.receive(line) }, () => {
-        process.stderr.write('feishu-im: ready for private messages\n')
-      }, lifetime.signal)
-    })().catch(async (error: unknown) => {
-      if (!lifetime.signal.aborted) {
-        process.stderr.write(`feishu-im: ${errorChain(error)}\n`)
-        await driver.dispose()
-        exit(1)
-      }
-    })
-    return async () => {
-      lifetime.abort()
-      await driver.dispose()
-      await running
-    }
+      if (!controller.signal.aborted) await runtime.configure(account())
+    })()
+    return async () => { controller.abort(); await runtime.dispose(); await starting }
   }, 'feishu-im.lifecycle()')
+  ctx.inject(['settings', 'connection'], child => {
+    const manager = new SetupManager(child, runtime, account)
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+    child.effect(() => {
+      runtime.onMessage = (message, account) => manager.receive(message, account)
+      const routes = ['status', 'save', 'disconnect', 'pairStart', 'qrStart', 'qrCancel'].map(endpoint => child.connection.fetch.register({
+        path: `/api/feishu-im/${endpoint}`, methods: ['POST'], requestBody: 'buffered',
+        fetch: async request => {
+          let message
+          try {
+            message = clientRequestSchema.parse(await readJson(new Response(request.body), 32_768))
+            if (message.method !== `feishu-im/${endpoint}`) return new Response('invalid method', { status: 400 })
+          } catch { return new Response('invalid request', { status: 400 }) }
+          let result
+          try { result = { ok: true, value: await manager.call(endpoint, message.payload, request.signal) } }
+          catch (error: unknown) {
+            const code = error instanceof Error && error.message.startsWith('feishu-im: ') ? error.message.slice(11) : 'configuration_failed'
+            result = { ok: false, error: { code, message: code, details: {} } }
+          }
+          return Response.json({ type: 'server-response', rpcId: message.rpcId, result })
+        },
+      }))
+      return async () => { runtime.onMessage = undefined; await Promise.all(routes.map(remove => remove())); await manager.dispose() }
+    })
+  })
 }

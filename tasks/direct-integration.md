@@ -7,7 +7,7 @@ Replace lark-cli with the official Feishu SDK and OpenAPI. Install into a dsh We
 ## Architecture and sources
 
 - Keep published Harness packages at 0.1.7-alpha.2. Compose an additive plugin beside the Web runner; create/resume agents using the published preset registry when present.
-- Use `@larksuiteoapi/node-sdk@1.74.0` for WebSocket handling and `registerApp`. Direct HTTP requests own cancellation, timeouts, token renewal and deterministic reply UUIDs. Source: https://github.com/larksuite/node-sdk/blob/main/README.md
+- Use `@larksuiteoapi/node-sdk@1.74.0` for WebSocket handling. Follow its official app-registration API protocol through cancellable direct HTTP. Direct HTTP requests own cancellation, timeouts, token renewal and deterministic reply UUIDs. Source: https://github.com/larksuite/node-sdk/blob/main/README.md
 - Register the browser page through `dsh.client` and settings/plugin slots. Use authenticated `connection.rpc` and revisioned Settings; secrets are role-marked and never returned. Sources: published READMEs/types of dsh-client-connection, dsh-client-ui-settings and dsh-settings.
 - A QR scan explicitly binds the scanning human. Manual credentials require explicit allowed users or a short-lived pairing code shown only in the authenticated settings page. Private chats only; no open access or secret import from lark-cli.
 - Subscribe to committed Session events for concise assistant text and tool/turn milestones. Do not expose raw reasoning blocks or dump tool payloads. Serialize and throttle progress-card updates; final delivery failure never reruns task side effects.

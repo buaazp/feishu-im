@@ -1,57 +1,36 @@
 # Architecture
 
-The plugin is a task driver inside a dsh profile. Cordis owns its lifetime; the Agent registry owns task execution; Session persistence owns conversation history; the subprocess provider owns lark-cli processes. No Harness source patch is required.
+[中文](architecture.zh-CN.md)
 
-```mermaid
-sequenceDiagram
-    participant Human as Feishu user
-    participant CLI as lark-cli
-    participant Plugin as feishu-im
-    participant Agent as dsh Agent
-    participant Log as Session storage
-    Human->>CLI: Private text
-    CLI->>Plugin: Decoded NDJSON event
-    Plugin->>Plugin: Validate sender and deduplicate
-    Plugin->>Agent: Create or resume, then follow up
-    Agent->>Log: Messages and tool outcomes
-    Agent-->>Plugin: Whole-Agent idle
-    Plugin->>Log: Flush and observe committed result
-    Plugin->>CLI: Reply as bot
-    CLI-->>Human: Final assistant text
-```
+The independent bundle adds a channel beside a profile-owned dsh runner. The management executable edits configuration and diagnoses credentials; it never launches Agent applications. Published Harness packages remain external at `0.1.7-alpha.2`.
 
-## Installation and startup
+## Connection and configuration
 
-The npm package declares `dsh.bundle.patch`. Installation into a new profile adds this layer after `dsh-base`. Its `headless-runner` row is the profile's application driver, a row that dsh already audits as required at startup. A missing module, invalid configuration, or missing injected service therefore fails startup. Use a dedicated profile; this bundle does not coexist with another application runner.
+`FeishuApi` owns direct HTTP calls, cached tenant access tokens, bounded response parsing, request deadlines and cancellation. Concurrent token users share an application-owned refresh. Text replies split at Unicode code points and carry deterministic UUIDs. Only explicit token-rejection codes permit one authentication retry; a failed reply does not re-admit a task.
 
-The `feishu-im` management executable configures or diagnoses that profile. It never creates a Cordis application or starts an Agent. Runtime execution always uses `dsh --profile <name>`.
+`FeishuEvents` uses the official SDK's WebSocket client and dispatcher. Its public HTTP adapter owns endpoint discovery, and public Node agents own sockets through handshake and close. Closing cancels discovery, force-closes the SDK and awaits owned sockets/requests. Malformed and unsupported events are contained at the boundary. Logs do not print SDK credential or ticket objects.
 
-## Conversation ownership
+The `account` volatile schema marks App Secret as a secret. The configuration page uses dsh's authenticated Connection transport and revisioned Settings service. QR registration follows Feishu's official app-registration API with minimal bot permissions and explicit scanner identity. Unlike the SDK registration helper, every initial request, poll and delay is cancellable and bounded. Manual setup uses a random, expiring, one-use pairing code. No local lark-cli state is read.
 
-The Session id hashes the lark-cli profile, workspace, private chat id, and sender open_id. This retains the original driver's identity algorithm and separates authorized users. A worker exclusively owns its Agent until its queue drains. A later message resumes the same saved Session; a live Agent owned by another component cannot be adopted. Preset-based Sessions require their original composition and are rejected.
+Reconfiguration serializes generations: abort the old connection, cancel and join its tasks and decisions, then start the latest account. Missing configuration or connection failure leaves the Web application available for repair.
 
-One worker submits one follow-up at a time. Stable user message ids recover admission deduplication from saved inbox and user-message events. An interrupted admitted message is not automatically rerun. `/dsh stop` cancels the active Agent and removes unstarted queue entries. Disposal cancels and drains owned work, closes consumer stdin, and escalates through the subprocess provider only after the grace period.
+## Task ownership
 
-## Transport and trust
+Native events must be human, private and textual. Explicit allowedUsers authorization precedes task admission. The Session hash binds application namespace, workspace, chat and sender. Each worker owns one Agent handle, a bounded queue, task deadline and cancellation controller.
 
-lark-cli owns credentials, websocket transport, and reconnection. The driver waits for the documented subscription-ready marker, validates bounded UTF-8 NDJSON, and accepts only allowlisted humans in private text conversations. Content is passed as a literal logged user message, never shell syntax. Tool permissions remain owned by the dsh profile.
+New Agents mount the current published preset via the registry during setup. Resumed Agents mount their persisted preset and reject incompatible workspace or lineage. Durable user/message and inbox-splice events prevent duplicate admissions across restarts. Interrupted inbox entries are cleared rather than replaying side effects. `/dsh stop` clears unstarted work and cancels the active interval.
 
-Replies select committed assistant text without reasoning or tool payloads. Each chunk respects the complete JSON content byte limit and carries a deterministic idempotency key. Flush and Feishu delivery are separate operations. There is no durable inbox for unadmitted messages, offline polling, exactly-once task execution across crashes, or durable reply outbox.
+## Feedback and decisions
 
-## Modules
+Committed Session events drive one milestone card per task. Only public assistant text, stage labels, tool names and tool success/failure summaries appear. Updates serialize, retain at most one pending snapshot and coalesce under slow delivery. Final text is separate and can span bounded replies.
 
-| Module | Responsibility |
-| --- | --- |
-| `src/index.ts` | Cordis activation and shutdown |
-| `src/config.ts` | Deployment validation and defaults |
-| `src/protocol.ts` | Wire parsing, conversation ids, byte limits |
-| `src/transport.ts` | CLI event and reply processes |
-| `src/driver.ts` | Authorization, task ordering, history, results |
+Agent-scoped approval and user-question waterfalls route to single-use cards. Each callback must match application, message/card, private chat, sender and a random request token. Form selections are checked against the exact options. Cards expire on timeout, task cancellation, reconfiguration or shutdown. Oversized or incomplete approval details fail closed. The upstream approval policy runs first; `never` cannot be bypassed.
 
-The driver owns no independent registry or projection, so it publishes no runtime-invariant companion. Tests observe the actual Agent, subprocess, persisted transcript, and user-visible replies.
+## Source contracts
 
-## Management and extraction
+- [Official Feishu SDK](https://github.com/larksuite/node-sdk): WSClient, EventDispatcher and registerApp.
+- Published `dsh-agent`, `dsh-agent-preset-registry`, `dsh-session-query`: Agent ownership and durable history.
+- Published `dsh-settings`, `dsh-client-connection`, `dsh-client-ui-plugin-manager`: profile persistence, authenticated browser transport and bundle configuration slots.
+- Published `dsh-user-approval`, `dsh-user-questions`: scoped decision protocols.
 
-Harness separates the Agent API and loop, Session persistence, model providers, filesystem tools, subprocess services, and profile bundles. This driver consumes those published services and adds no agent-loop changes. The original interaction package is therefore independently installable through the supported bundle extension point.
-
-`src/messages.ts` owns control-message translations. `src/lark-auth.ts` queries public CLI discovery commands and retains only minimal identity fields. `src/profile.ts` validates installed profiles and updates their patch under a lock. `src/management.ts` implements setup, doctor, and reset. The management executable directly depends on its schema library because ordinary Node execution does not use dsh's host-module resolver.
+Tests use isolated fake Feishu HTTP/WebSocket servers, published real Agents and a packed real Web profile. No real messages are sent by automation.

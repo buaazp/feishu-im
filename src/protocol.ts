@@ -1,19 +1,17 @@
-/** Lark CLI wire parsing and bounded reply encoding. */
+/** Private message validation and bounded reply encoding. */
 
 import { createHash } from 'node:crypto'
-import { StringDecoder } from 'node:string_decoder'
-import type { Readable } from 'node:stream'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 
-/** Feishu message identity validated at the CLI output parser. */
+/** Feishu message identity validated at the message parser. */
 export type LarkMessageId = string & Branded<'LarkMessageId'>
 /** Feishu private-chat identity. */
 export type LarkChatId = string & Branded<'LarkChatId'>
 /** Feishu human open_id. */
 export type LarkUserId = string & Branded<'LarkUserId'>
 
-/** Admitted private text message; CLI content is already decoded. */
+/** Admitted private text message; text content is already decoded. */
 export interface IncomingMessage {
   messageId: LarkMessageId
   chatId: LarkChatId
@@ -22,7 +20,7 @@ export interface IncomingMessage {
 }
 
 /**
- * Decode one CLI record, ignoring non-human, non-private, or non-text events.
+ * Decode one normalized message, ignoring non-human, non-private, or non-text events.
  * @param line - one complete JSON record.
  * @returns a validated message or undefined for an unsupported event.
  * @throws for malformed JSON or malformed supported message fields.
@@ -54,7 +52,7 @@ export function parseMessage(line: string): IncomingMessage | undefined {
 
 /**
  * Derive a private Session identity without retaining raw chat identifiers in paths.
- * @param profile - pinned lark-cli application profile.
+ * @param profile - application id or explicit legacy namespace.
  * @param cwd - configured task directory.
  * @param message - private conversation participants.
  * @returns a stable Session id for this application, directory, and conversation.
@@ -62,30 +60,6 @@ export function parseMessage(line: string): IncomingMessage | undefined {
 export function conversationId(profile: string, cwd: string, message: IncomingMessage): SessionId {
   return brandString<SessionId>(`lark-${createHash('sha256')
     .update(JSON.stringify([profile, cwd, message.chatId, message.senderId])).digest('hex')}`)
-}
-
-/**
- * Read UTF-8 lines without allowing an unterminated record to grow without bound.
- * @param stream - owned subprocess output stream.
- * @param maxBytes - maximum UTF-8 bytes per line, excluding its newline.
- * @returns complete lines, including a final unterminated line.
- */
-export async function* readLines(stream: Readable, maxBytes: number): AsyncGenerator<string> {
-  const decoder = new StringDecoder('utf8')
-  let pending = ''
-  for await (const chunk of stream) {
-    if (!Buffer.isBuffer(chunk)) throw new Error('feishu-im: expected byte output')
-    const parts = (pending + decoder.write(chunk)).split('\n')
-    pending = parts.pop() as string
-    for (const line of parts) {
-      if (Buffer.byteLength(line) > maxBytes) throw new Error('feishu-im: CLI record exceeds maxRecordBytes')
-      yield line.replace(/\r$/, '')
-    }
-    if (Buffer.byteLength(pending) > maxBytes) throw new Error('feishu-im: CLI record exceeds maxRecordBytes')
-  }
-  pending += decoder.end()
-  if (Buffer.byteLength(pending) > maxBytes) throw new Error('feishu-im: CLI record exceeds maxRecordBytes')
-  if (pending !== '') yield pending.replace(/\r$/, '')
 }
 
 /**

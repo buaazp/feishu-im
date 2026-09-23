@@ -1,3 +1,0 @@
-开始处理任务。
-
-第 1 条消息：write validation file

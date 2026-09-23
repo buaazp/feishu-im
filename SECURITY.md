@@ -1,11 +1,11 @@
-# Security policy
+# Security
 
-Only the current release and its documented dsh version are maintained. This plugin admits remote instructions that can use the tools and OS permissions granted to its dsh profile. The sender allowlist is an admission control, not per-user process or filesystem isolation.
+Only explicitly authorized human open_ids may run tasks, and only through private text messages. Pairing codes are random, expire after ten minutes and work once. QR registration authorizes only a validated scanner identity returned by Feishu. An absent identity never implies open access.
 
-Run it under an appropriate OS account and permission policy. lark-cli retains app secrets and tokens; dsh retains model credentials. Session files can contain private conversations, file content, and tool results. Do not expose their directories or include them in public bug reports.
+Application credentials remain in the dsh profile, outside the task workspace, with secret schema redaction and `0600` writes. Configuration and pairing use dsh's authenticated browser transport. The plugin never imports lark-cli secrets and never logs SDK credential or socket-ticket objects. Do not commit profile files, App Secrets or login URLs.
 
-Do not open a public issue containing an exploit, credential, private chat transcript, or sensitive file. On a published GitHub repository with private vulnerability reporting enabled, use **Security → Report a vulnerability**. No remote repository or private reporting address is configured in this source release; until one is available, contact the person who supplied this checkout privately. Do not assume an invented email address is monitored.
+Decision cards bind app, task source, private chat, sender, card id and a random one-use token. Invalid, expired and replayed callbacks fail closed. Approval grants apply once, and dsh's `never` policy remains authoritative. Oversized or unavailable action details cannot be approved through a truncated card.
 
-Provide the affected version, impact, minimal reproduction, and whether the issue involves the plugin, lark-cli, or dsh. Remove credentials from examples. Maintainers should enable private reporting and update this document before public release. Disclosure timing is agreed with the reporter; there is no promised response SLA.
+Task permissions are those of the dsh deployment and its selected Agent preset. Authorize only users you trust with those tools. Revoke access on the configuration page and rotate compromised application secrets in Feishu's developer console.
 
-中文：白名单用户可调用 profile 授予的工具，多个用户共享系统账号和目录。请保护本地凭据、会话和日志。敏感问题不要发公开 issue；公开仓库开启私密漏洞报告后使用 GitHub Security 入口，之前请私下联系提供源码的人。
+Report suspected vulnerabilities privately to the repository maintainer, including versions and a minimal reproduction with credentials removed. Do not publish working secrets in issues or logs.

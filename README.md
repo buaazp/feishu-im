@@ -1,132 +1,83 @@
 # Feishu IM for dsh
 
-[简体中文](README.zh-CN.md) · [Configuration](docs/configuration.md) · [Troubleshooting](docs/operations.md) · [Architecture](docs/architecture.md)
+[简体中文](README.zh-CN.md) · [Configuration](docs/configuration.md) · [Operations](docs/operations.md)
 
-Run tasks on your machine by messaging your Feishu bot. This independent dsh plugin reuses an existing **lark-cli application profile**: no copied app secret, webhook server, or separate Agent runtime.
+Run dsh tasks in private Feishu bot chats. The plugin calls Feishu OpenAPI directly and receives long-connection events through the official Node SDK. **No lark-cli installation is required.**
+
+- Open **Plugins → dsh-feishu-im** in dsh to scan a registration QR or enter App ID / App Secret.
+- Authorize your Feishu account with a single-use pairing code. Only explicitly authorized private text messages start tasks.
+- Conversations retain history, serialize tasks and isolate users.
+- Progress cards update task stages, tool status and public assistant explanations; a separate text reply delivers the result. Raw reasoning blocks and tool outputs are not forwarded.
+- Interactive cards collect approvals, single/multiple choices and custom answers.
+
+## Install
+
+Use Node.js `^22.19.0` or `>=24.0.0` and the tested published `@deepseek-ai/dsh@0.1.7-alpha.2`. Harness APIs are pre-stable; use this exact version.
+
+Build an installable package from this repository:
+
+```sh
+npm ci
+npm run build
+npm pack
+# Replace this with the actual absolute tarball path.
+dsh plugin --profile web add /absolute/path/dsh-feishu-im-0.2.0.tgz
+```
+
+pnpm 11+ may require a decision about the `protobufjs` install script. The dsh Plugins page offers **Allow these scripts and retry**. That script only checks dependent version ranges. Alternatively, explicitly set `allowBuilds.protobufjs: false` in this profile's `pnpm-workspace.yaml` and retry; the plugin is tested with that script denied. Preserve other workspace settings.
+
+Restart `dsh --profile web`, open **Plugins** in the sidebar, and select **dsh-feishu-im**. The channel runs beside the existing Web application runner.
+
+## Connect a bot
+
+Enter an absolute task workspace outside the dsh profile directory that stores configuration and credentials.
+
+**QR:** Select **Create a bot with QR → Generate QR code**, scan with Feishu and confirm on your phone. This official registration flow is subject to your organization's app creation permissions and administrator approval. Credentials are saved on success. When Feishu returns the scanner's open_id, only that user is authorized; otherwise authorize with a pairing code.
+
+**Existing application:** Create an enterprise self-built app in the [Feishu developer console](https://open.feishu.cn/app), enable its bot capability, select **long connection** under Events & Callbacks, configure the following and publish an app version:
+
+| Type | Identifiers |
+| --- | --- |
+| App-identity permissions | `im:message:send_as_bot`, `im:message.p2p_msg:readonly` |
+| Message event | `im.message.receive_v1` |
+| Card callback | `card.action.trigger` |
+
+Enter App ID and App Secret, then **Save and connect**. Choose the Lark region for international Lark applications. Saved secrets never return to the browser; a blank secret keeps the existing value only for the same App ID.
+
+Once connected, generate a pairing code and send the displayed `/dsh pair …` command to the bot from your own private chat. Codes expire after ten minutes and work once. Alternatively, enter explicit human open_ids in the authorized-users field. After pairing, send a task.
+
+Feishu controls availability of QR permission/callback prefilling. If messages or card actions do not arrive after registration, verify the listed settings, long-connection mode and publication status in the developer console. No user OAuth login or public callback server is required.
+
+## Use
 
 ```text
-You → Feishu private chat → lark-cli → dsh Agent → files and tools
-You ← final answer        ← bot reply ← saved Session
+Find why this project's tests fail
+/dsh status
+/dsh stop
+/dsh help
 ```
 
-- Explicit sender allowlist; private text messages only.
-- Persistent conversation history, ordered follow-ups, and duplicate admission suppression.
-- `/dsh status`, `/dsh stop`, and `/dsh help`; Chinese or English control messages.
-- Guided configuration and read-only diagnostics through `feishu-im setup` and `doctor`.
-- Tested as a packed plugin installed into the published dsh runtime.
+New conversations use dsh's current default model and Agent preset. Resumed conversations retain their original preset. Changing the application or workspace gives the conversation a new identity.
 
-## Quick start
+Only the task's initiating user can answer its card in the original private chat. **Allow once** grants just that action. Rejection, cancellation, expiry and restart never grant permission; dsh's `never` approval policy still applies. Requests that cannot be displayed completely fail closed.
 
-### 1. Prepare the tools
+A failed reply never reruns task side effects. Feishu controls event delivery during disconnection; the plugin cannot guarantee complete offline replay.
 
-Use Node.js **22.19+ in the 22.x line, or 24+**, pnpm **10+**, and [lark-cli](https://github.com/larksuite/cli) **1.0.78** or a compatible newer version. Install the exact supported dsh version; its npm `latest` tag may point to an older incompatible release.
+## Upgrade from 0.1
 
-```sh
-npm install -g @deepseek-ai/dsh@0.1.7-alpha.2
-node --version
-pnpm --version
-lark-cli --version
-```
+Version 0.2 removes `command`, `profile`, `maxRecordBytes` and `graceMs`. It never reads or copies lark-cli credentials.
 
-Keep an existing compatible dsh installation. For a different dsh version, use an isolated installation rather than replacing a shared runtime. See [compatibility](docs/compatibility.md).
+Install into an existing Web profile and configure credentials again. Remove an old `headless-runner` override only if it belongs to `dsh-feishu-im`; preserve other runners. New settings live under `id: feishu-im`, `config.account`.
 
-In the Feishu developer console, enable the application's bot, make it available to your account, select the long-connection event delivery mode, and subscribe to `im.message.receive_v1`. Enable the permissions required to receive private messages and reply as the bot, including `im:message.p2p_msg:readonly` and `im:message:send_as_bot`, then publish the app changes. Follow lark-cli's reported missing scopes if your app needs additional permissions.
+Continuing old history requires the original Session store, workspace and an explicit `legacyNamespace` matching the old CLI profile name. Preset-free legacy sessions cannot resume under a Web preset; retain their original composition or start fresh. See [configuration](docs/configuration.md).
 
-If the app is already configured in lark-cli, reuse it. Otherwise run `lark-cli config init`. Check the configured profiles and the chosen bot:
+## Develop and verify
 
 ```sh
-lark-cli profile list
-lark-cli --profile YOUR_APP_PROFILE auth status --json --verify
-```
-
-The bot must be available and verified. An expired **user** token is not a reason to log in again for this plugin. Find your human `ou_...` open_id for this application in `identities.user.openId`, or resolve it with lark-cli's contact tools. Do not use the bot's open_id.
-
-### 2. Install the plugin
-
-This source release is installed from a tarball. The package is not yet published to npm. From this repository checkout:
-
-```sh
-npm ci
-npm pack
-```
-
-Install the resulting file into a **new dedicated profile**. Replace the path with the absolute path to your tarball; `feishu` is an arbitrary profile name.
-
-```sh
-dsh plugin --profile feishu add /absolute/path/dsh-feishu-im-0.1.0.tgz
-```
-
-Do not install this bundle into `headless`, `web`, or another profile with an application runner.
-
-### 3. Configure once
-
-Create a directory where tasks should run, then start the interactive guide:
-
-```sh
-mkdir -p "$HOME/feishu-work"
-dsh plugin --profile feishu exec feishu-im setup
-```
-
-The guide selects an app, asks which humans to authorize, and asks for the task directory. For repeatable or noninteractive setup:
-
-```sh
-dsh plugin --profile feishu exec feishu-im setup \
-  --lark-profile YOUR_APP_PROFILE \
-  --allow-user ou_YOUR_HUMAN_OPEN_ID \
-  --workspace "$HOME/feishu-work" \
-  --locale en
-
-dsh plugin --profile feishu exec feishu-im doctor
-```
-
-Setup stores references and settings in the profile's `cordis.patch.yml`; credentials stay in lark-cli. `doctor` checks configuration, directory access, and bot identity. It does not contact the model or open an event connection.
-
-### 4. Launch and send a task
-
-Configure the dsh model credential through your existing dsh credential store or the `DEEPSEEK_API_KEY` environment variable. The base profile selects `deepseek-official / deepseek-flash`; [configuration](docs/configuration.md) explains changing the model.
-
-Launch **from the task directory**, so dsh's workspace permission root matches the configured directory:
-
-```sh
-cd "$HOME/feishu-work"
-dsh --profile feishu
-```
-
-Wait for `feishu-im: ready for private messages`. Send this to the bot in a private chat:
-
-> Create `hello-feishu.txt` in the current directory with the content `HELLO_FEISHU`, then tell me its filename.
-
-The bot acknowledges the task, dsh executes it, and the bot replies with the final answer. Send a follow-up to continue the same history. Stop the process with Ctrl+C. Run only one task-driving listener for the app.
-
-## Everyday use
-
-| Send to the bot | Result |
-| --- | --- |
-| Any nonempty text | Start or continue a task |
-| `/dsh status` | Current activity and waiting message count |
-| `/dsh stop` | Cancel current work and clear waiting messages |
-| `/dsh help` | List commands |
-
-The `/dsh` prefix is reserved: `/dsh` and unknown `/dsh ...` commands show help. Other text, including unrelated slash commands, is a task. Different authorized senders have separate histories but **share the same task directory and OS account**. The allowlist is not filesystem isolation. Review the profile's tools and permissions before adding users.
-
-The release supports final plain-text replies. Groups, files, images, interactive approval cards, streaming progress, and offline message replay are not implemented. Interactive tool approvals have no Feishu UI; tasks needing them may fail or wait until stopped or timed out. Keep appropriate dsh permission rules; do not disable them to work around missing UI.
-
-For model-side Feishu document/calendar skills, install the upstream skills separately with `npx skills add larksuite/cli -g -y` and make them available to dsh's skill loader. The IM driver itself directly uses the public CLI commands documented by those skills. Additional skills may require their own user authorization.
-
-## Guides and development
-
-- [Configuration reference](docs/configuration.md): settings, model selection, and advanced overrides.
-- [Operations and troubleshooting](docs/operations.md): restarts, upgrades, logs, recovery, and uninstall.
-- [Architecture](docs/architecture.md) and [compatibility](docs/compatibility.md): design and supported APIs.
-- [Contributing](CONTRIBUTING.md), [security reporting](SECURITY.md), [release guide](docs/releasing.md), and [changelog](CHANGELOG.md).
-
-```sh
-npm ci
 npm run check
+npm run build
 npm run test:integration
 npm run package:check
 ```
 
-Automated tests replace only external model and Feishu endpoints. They never send real messages. See [validation](docs/validation.md) for recorded evidence and the manual live-check procedure.
-
-MIT licensed. Derived from the DeepSeek Harness Lark IM driver; see [NOTICE](NOTICE). This project is independent of DeepSeek and Feishu/Lark.
+Integration tests install the tarball into an isolated real dsh Web profile and use local fake Feishu HTTP/WebSocket endpoints and a fake model. They cover configuration, pairing, tool execution and restart deduplication without sending real messages. [Architecture](docs/architecture.md) · [Compatibility](docs/compatibility.md) · [Security](SECURITY.md)

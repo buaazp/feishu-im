@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react",
+    "lib": [
+      "ES2024",
+      "DOM",
+      "ESNext.Disposable"
+    ]
+  },
+  "include": [
+    "src/client.tsx",
+    "tests/client.spec.tsx"
+  ]
+}

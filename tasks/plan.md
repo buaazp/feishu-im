@@ -1,5 +1,6 @@
 # Standalone Feishu IM plugin
 
+This is the completed 0.1 release plan. The current 0.2 replacement of lark-cli is tracked in [direct-integration.md](direct-integration.md).
 The next release follows [Direct Feishu integration](direct-integration.md). The completed initial-release plan is retained below.
 
 ## Objective

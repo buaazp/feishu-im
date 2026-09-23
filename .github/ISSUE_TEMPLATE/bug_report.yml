@@ -5,7 +5,7 @@ body:
     id: versions
     attributes:
       label: Versions and OS / 版本与系统
-      description: Plugin, dsh, Node, pnpm, lark-cli, and OS versions.
+      description: Plugin, dsh, Node, pnpm, Feishu SDK, and OS versions.
     validations:
       required: true
   - type: textarea

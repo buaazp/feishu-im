@@ -1,132 +1,83 @@
 # Feishu IM for dsh
 
-[English](README.md) · [配置参考](docs/configuration.zh-CN.md) · [运维与排障](docs/operations.zh-CN.md) · [架构设计](docs/architecture.zh-CN.md)
+[English](README.md) · [配置参考](docs/configuration.zh-CN.md) · [运行与排障](docs/operations.zh-CN.md)
 
-在飞书私聊机器人，驱动本机 dsh 执行任务。这个独立插件复用 **lark-cli 中已有的应用配置**，无需复制应用密钥、部署 webhook 服务或另外运行一套 Agent。
+在飞书机器人私聊中使用 dsh。插件直接调用飞书 OpenAPI，并用官方 Node SDK 接收长连接事件，**不需要安装 lark-cli**。
+
+- 在 dsh 的 **插件 → dsh-feishu-im** 配置页扫码创建机器人，或输入 App ID / App Secret。
+- 一次性配对码授权自己的飞书账号；只处理明确授权用户的私聊文本。
+- 同一私聊保留会话历史，任务按顺序执行；不同用户的会话隔离。
+- 进度卡片更新任务阶段、工具执行状态和助手公开说明，最终结果另发文本。不会转发原始推理块或工具输出。
+- 需要确认或回答问题时，点击飞书交互卡片完成操作；支持单选、多选和补充文字。
+
+## 安装
+
+使用 Node.js `^22.19.0` 或 `>=24.0.0`，以及发布的 `@deepseek-ai/dsh@0.1.7-alpha.2`。Harness 仍处于预稳定阶段，请使用这个经过验证的版本。
+
+从本仓库构建安装包：
+
+```sh
+npm ci
+npm run build
+npm pack
+# 在你的 dsh Web profile 中安装生成的包；替换为实际绝对路径。
+dsh plugin --profile web add /absolute/path/dsh-feishu-im-0.2.0.tgz
+```
+
+pnpm 11+ 可能提示 `protobufjs` 安装脚本待决定。dsh 插件页可选择“允许这些脚本并重试”。这个依赖的脚本只检查版本范围；也可以在对应 profile 的 `pnpm-workspace.yaml` 中明确设置 `allowBuilds.protobufjs: false` 后重试，插件已验证不依赖该脚本。不要覆盖文件里的其他配置。
+
+重启 `dsh --profile web`，打开侧栏的**插件**，进入 **dsh-feishu-im**。插件与 Web 应用并存，不替换 dsh 的启动入口。
+
+## 连接机器人
+
+先填写任务工作目录的绝对路径。不要选择 dsh 存放配置和凭据的 profile 目录。
+
+**扫码：** 点击“扫码创建机器人 → 生成二维码”，使用飞书扫描并在手机上确认。此流程由飞书官方提供，可能受组织应用创建权限或管理员审批限制。成功后，插件保存应用凭据；官方返回扫码用户的 open_id 时，只授权该用户。未返回身份时，使用配对码完成授权。
+
+**已有应用：** 在[飞书开发者后台](https://open.feishu.cn/app)创建企业自建应用，开启机器人能力，在“事件与回调”中选择**使用长连接接收事件**，配置下列内容并发布应用版本：
+
+| 类型 | 标识 |
+| --- | --- |
+| 应用身份权限 | `im:message:send_as_bot`、`im:message.p2p_msg:readonly` |
+| 接收消息事件 | `im.message.receive_v1` |
+| 卡片回调 | `card.action.trigger` |
+
+将 App ID、App Secret 填入配置页，点击“保存并连接”。Lark 国际版选择 Lark 区域。已保存密钥不会返回浏览器；同一个 App ID 的密钥输入框留空会保留原值。
+
+状态变为“已连接”后，点击“生成授权配对码”，用自己的飞书账号私聊机器人，发送页面展示的 `/dsh pair …`。代码十分钟有效，仅可用一次。也可直接在配置页填写明确允许的用户 open_id。授权成功后，向机器人发送任务即可。
+
+扫码配置预填权限和回调的能力仍受飞书平台开放范围影响。若扫码后不能接收消息或点击卡片，请到开发者后台核对上述设置、长连接模式和发布状态。无需用户 OAuth 登录或公网回调服务器。
+
+## 使用
 
 ```text
-你 → 飞书私聊 → lark-cli → dsh Agent → 文件和工具
-你 ← 最终答复 ← 机器人回复 ← 持久化 Session
+检查这个项目的测试失败原因
+/dsh status
+/dsh stop
+/dsh help
 ```
 
-- 明确的用户白名单，只接收私聊文本。
-- 持久化对话、多轮追问、顺序执行和重复消息去重。
-- `/dsh status`、`/dsh stop`、`/dsh help`；支持中英文控制提示。
-- `setup` 配置向导和 `doctor` 只读诊断。
-- 使用公开发布的 dsh，通过真实安装包验证安装和运行。
+每个任务会使用当前 dsh 默认模型和 Agent preset。恢复已有会话时保留原 preset，防止工具能力悄悄变化。更换应用或工作目录会创建新的会话身份。
 
-## 快速开始
+卡片只接受对应任务发起者在原私聊、原卡片上的操作。“允许本次”仅授权这一项操作；拒绝、取消、超时和重启都不会转为允许。dsh 的 `never` 审批策略仍然生效。无法完整展示的确认请求会拒绝继续，不会让用户盲目批准。
 
-### 1. 准备环境和机器人
+消息回复失败不会自动重做任务。断开长连接期间的消息补发由飞书决定；插件不能保证离线消息全部重放。
 
-需要 Node.js **22.x 的 22.19 及以上版本，或 24 及以上版本**、pnpm **10+**，以及 [lark-cli](https://github.com/larksuite/cli) **1.0.78** 或兼容的新版本。dsh 必须使用以下已验证版本；npm 的 `latest` 标签可能仍指向不兼容的旧版本。
+## 从 0.1 升级
 
-```sh
-npm install -g @deepseek-ai/dsh@0.1.7-alpha.2
-node --version
-pnpm --version
-lark-cli --version
-```
+0.2 移除了 `command`、`profile`、`maxRecordBytes` 和 `graceMs`。不读取或复制 lark-cli 的任何凭据。
 
-已有兼容版本时直接复用。如果机器上其他项目依赖不同版本，请隔离安装，不要覆盖共享运行时。详见[兼容性](docs/compatibility.md)。
+建议将新版本安装到已有 Web profile，并在配置页重新输入凭据或扫码。移除旧 profile 中由 `dsh-feishu-im` 占用的 `headless-runner` 行；不要移除其他插件的 runner。新配置保存在 `id: feishu-im` 的 `config.account` 下。
 
-在飞书开发者后台启用应用机器人，确保应用对你的账号可用，将事件接收方式配置为长连接，订阅 `im.message.receive_v1`。开通接收私聊和机器人发送消息所需权限，包括 `im:message.p2p_msg:readonly`、`im:message:send_as_bot`，并发布应用变更。如 lark-cli 报告其他缺失权限，以错误中给出的权限和修复提示为准。
+旧会话需要原 Session 存储、原工作目录及显式的 `legacyNamespace`（旧 lark-cli profile 名）。preset-free 旧会话不能在 Web preset 下直接恢复；保留原始应用组合才能继续，或使用新会话。见[配置参考](docs/configuration.zh-CN.md)。
 
-已经在 lark-cli 中配置过应用就直接复用；未配置时运行 `lark-cli config init`。检查应用列表和机器人状态：
+## 开发与验证
 
 ```sh
-lark-cli profile list
-lark-cli --profile YOUR_APP_PROFILE auth status --json --verify
-```
-
-机器人身份应为可用且验证通过。**用户 OAuth token 过期不影响此插件使用机器人身份**，不需要因此重新登录。白名单使用该应用下你本人的 `ou_...` open_id，可查看 `identities.user.openId`，或通过 lark-cli 通讯录能力查询；不要填写机器人的 open_id。
-
-### 2. 安装插件
-
-当前源码版本使用 tarball 安装，尚未发布到 npm。在本仓库目录执行：
-
-```sh
-npm ci
-npm pack
-```
-
-将生成的安装包添加到一个**新的专用 profile**。替换为安装包的绝对路径；`feishu` 是可自行修改的 profile 名称。
-
-```sh
-dsh plugin --profile feishu add /absolute/path/dsh-feishu-im-0.1.0.tgz
-```
-
-请勿安装到 `headless`、`web` 或已经包含其他应用启动器的 profile 中。
-
-### 3. 首次配置
-
-创建任务目录，然后运行交互向导：
-
-```sh
-mkdir -p "$HOME/feishu-work"
-dsh plugin --profile feishu exec feishu-im setup
-```
-
-向导会选择应用，要求明确授权的用户，并询问任务目录。脚本或非交互环境使用完整参数：
-
-```sh
-dsh plugin --profile feishu exec feishu-im setup \
-  --lark-profile YOUR_APP_PROFILE \
-  --allow-user ou_YOUR_HUMAN_OPEN_ID \
-  --workspace "$HOME/feishu-work" \
-  --locale zh-CN
-
-dsh plugin --profile feishu exec feishu-im doctor
-```
-
-配置保存在该 profile 的 `cordis.patch.yml`，应用密钥仍由 lark-cli 管理。`doctor` 检查配置、目录读写权限和机器人身份，不调用模型，也不建立事件连接。
-
-### 4. 启动并发送任务
-
-通过已有 dsh 凭据存储或 `DEEPSEEK_API_KEY` 环境变量配置模型凭据。基础 profile 默认选择 `deepseek-official / deepseek-flash`；更换模型见[配置参考](docs/configuration.zh-CN.md)。
-
-**先进入任务目录再启动**，让 dsh 的工作区权限根目录与插件配置一致：
-
-```sh
-cd "$HOME/feishu-work"
-dsh --profile feishu
-```
-
-看到 `feishu-im: ready for private messages` 后，在飞书中私聊机器人：
-
-> 在当前目录创建 hello-feishu.txt，内容为 HELLO_FEISHU，然后告诉我文件名。
-
-机器人先确认开始处理，dsh 执行任务后再发送最终答复。继续发送消息即可沿用历史。终端按 Ctrl+C 停止服务。同一个应用只运行一个任务监听实例。
-
-## 日常使用
-
-| 发给机器人的内容 | 行为 |
-| --- | --- |
-| 任意非空文本 | 开始或继续任务 |
-| `/dsh status` | 查看处理状态和排队数量 |
-| `/dsh stop` | 取消当前任务并清空等待队列 |
-| `/dsh help` | 查看命令帮助 |
-
-`/dsh` 是保留前缀，单独发送 `/dsh` 或未知 `/dsh ...` 命令会显示帮助；其余文本（包括其他斜杠命令）作为任务。不同授权用户拥有独立会话，但**共享任务目录和本机系统账号**。白名单不是文件系统隔离机制；添加用户前应确认 profile 的工具和权限设置。
-
-当前仅支持最终纯文本回复，暂不支持群聊、附件、图片、交互审批卡片、实时进度和离线消息补拉。需要交互授权的工具没有飞书审批界面，可能失败或等待到停止、超时；应使用合适的 dsh 权限策略，不要为了绕过缺失界面而关闭权限控制。
-
-如果还希望模型操作飞书文档、日历等，可另外执行 `npx skills add larksuite/cli -g -y` 安装官方 skills，并确保 dsh skill loader 能加载它们。IM 驱动本身直接使用这些 skills 文档描述的公开 CLI 命令。额外业务能力可能需要单独的用户授权。
-
-## 更多文档与开发
-
-- [配置参考](docs/configuration.zh-CN.md)：完整参数、模型选择和自定义配置。
-- [运维与排障](docs/operations.zh-CN.md)：重启、升级、日志、故障恢复与卸载。
-- [架构设计](docs/architecture.zh-CN.md)、[兼容性](docs/compatibility.md)。
-- [贡献指南](CONTRIBUTING.md)、[安全报告](SECURITY.md)、[发布流程](docs/releasing.md)、[变更记录](CHANGELOG.md)。
-
-```sh
-npm ci
 npm run check
+npm run build
 npm run test:integration
 npm run package:check
 ```
 
-自动测试仅替换外部模型和飞书端点，不会发送真实消息。[验证说明](docs/validation.md)记录已执行验证及手工私聊检查步骤。
-
-采用 MIT 许可证，代码源自 DeepSeek Harness Lark IM 驱动，见 [NOTICE](NOTICE)。本项目独立维护，不是 DeepSeek 或飞书官方产品。
+集成测试将 tarball 安装到隔离的真实 dsh Web profile，用本地假飞书 HTTP/WebSocket 和假模型验证配置、授权、工具执行及重启去重；不会发送真实飞书消息。[架构](docs/architecture.zh-CN.md) · [兼容性](docs/compatibility.md) · [安全](SECURITY.md)
