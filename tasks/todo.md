@@ -7,4 +7,5 @@
 - [x] Validate a task through the installed tarball and real dsh profile.
 - [x] Add bilingual user guides, architecture, operations, contribution and release documentation.
 - [x] Add CI, license, release artifact checks, and repository templates.
-- [ ] Run final checks, record verification, and commit the completed project.
+- [x] Run final checks, record verification, and commit the completed project.
+- [ ] Finish the additional live private-chat follow-up and stop the test listener; waiting for the human message.

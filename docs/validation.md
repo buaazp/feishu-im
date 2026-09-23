@@ -18,6 +18,14 @@ The 63-test unit suite passed on Node 24.21.0 and Node 26.7.0. The final packed-
 
 The automated IM endpoint and model are deterministic fixtures. They verify plugin composition, literal CLI argv, real task admission, tool execution, persistent history and replies. They do not establish that a particular Feishu tenant has granted scopes or configured events correctly.
 
+## Live verification status
+
+The independently installed tarball passed setup, bot-identity verification, and event-subscription readiness with an existing authorized lark-cli app on 2026-09-23. A real human private message reached the driver and received both acknowledgement and a failure reply. Its persisted turn records a model transport error: the selected local model proxy was offline. The test profile now uses the previously working DeepSeek provider, whose real request returned `MODEL_CONNECTION_OK` through a dsh headless profile.
+
+The final private-chat file-write round trip is pending a new human follow-up. It is not reported as passed. The listener remains available for that explicit test; it must be stopped normally after the follow-up and file/reply verification. Raw app ids, human ids, and chat transcripts are not included here.
+
+中文：独立安装包已完成真实机器人认证、事件订阅、私聊接收和回复验证。首次写文件任务因所选本地模型代理离线而失败；已切回可用模型，并通过实际模型请求。最终私聊写文件往返仍等待新的人工追问，不计为通过；验证后需正常停止监听。
+
 ## Manual live-check procedure
 
 1. Obtain authorization to use a specific app and human private chat. Confirm competing listeners have stopped.
