@@ -1,4 +1,7 @@
 /** SDK WebSocket lifecycle and validation at the Feishu event boundary. */
+import { Agent as HttpAgent } from 'node:http'
+import { Agent as HttpsAgent } from 'node:https'
+import type { Duplex } from 'node:stream'
 import { EventDispatcher, WSClient, defaultHttpInstance, type HttpInstance, type HttpRequestOptions, type Logger } from '@larksuiteoapi/node-sdk'
 import { FeishuApi, record } from './feishu-api.ts'
 import { parseMessage, type IncomingMessage } from './protocol.ts'
@@ -69,12 +72,26 @@ export class FeishuEvents {
         return { toast: { type: accepted ? 'success' : 'error', content: accepted ? '已提交 / Submitted' : '操作无效或已过期 / Invalid or expired' } }
       },
     })
-    const client = new WSClient({ appId, appSecret, domain: apiOrigin, logger, source: 'dsh-feishu-im',
+    const sockets = new Map<Duplex, Promise<void>>()
+    const requests = new Set<Promise<unknown>>()
+    const agent = apiOrigin.startsWith('http:') ? new HttpAgent() : new HttpsAgent()
+    const createConnection = agent.createConnection.bind(agent)
+    agent.createConnection = (options, callback) => {
+      combined.throwIfAborted()
+      // Node's built-in HTTP/HTTPS agents synchronously return the created socket.
+      const socket = createConnection(options, callback)!
+      const closed = new Promise<void>(resolve => socket.once('close', () => { sockets.delete(socket); resolve() }))
+      sockets.set(socket, closed)
+      return socket
+    }
+    const client = new WSClient({ appId, appSecret, domain: apiOrigin, logger, source: 'dsh-feishu-im', agent,
       handshakeTimeoutMs: this.startupTimeoutMs,
       httpInstance: Object.assign(Object.create(defaultHttpInstance) as HttpInstance, { request: async <T = unknown, R = T, D = unknown>(opts: HttpRequestOptions<D>): Promise<R> => {
         const url = new URL(opts.url!)
         if (url.origin !== apiOrigin || url.pathname !== '/callback/ws/endpoint') throw new Error('feishu-im: unexpected SDK endpoint')
-        return await this.api.json(url.pathname, opts.data, combined) as R
+        const request = this.api.json(url.pathname, opts.data, combined)
+        requests.add(request)
+        try { return await request as R } finally { requests.delete(request) }
       } }),
       onReady: () => { clearTimeout(timer); if (!combined.aborted) state('connected') },
       onError: () => { ended.reject(new Error('feishu-im: Feishu connection failed; check credentials and long-connection configuration')) },
@@ -86,7 +103,9 @@ export class FeishuEvents {
     try { await ended.promise } finally {
       lifetime.abort(); clearTimeout(timer); combined.removeEventListener('abort', stop)
       client.close({ force: true })
-      await started
+      agent.destroy()
+      for (const socket of sockets.keys()) socket.destroy()
+      await Promise.allSettled([started, ...requests, ...sockets.values()])
       state('stopped')
     }
   }

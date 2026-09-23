@@ -49,3 +49,14 @@ it('cancels pending SDK discovery during shutdown', async ({ onTestFinished }) =
   abort.abort(); await running
   expect(fixture.sockets.size).toBe(0)
 })
+
+it('joins sockets whose WebSocket upgrade has not completed', async ({ onTestFinished }) => {
+  const fixture = await feishuFixture(); fixture.setHandshakeReady(false)
+  const api = new FeishuApi({ appId: 'cli_0123456789abcdef', appSecret: 'fake', apiOrigin: fixture.origin, requestTimeoutMs: 5000, maxReplyBytes: 1000 })
+  const abort = new AbortController()
+  const running = new FeishuEvents(api, 5000).consume(() => {}, () => false, () => {}, abort.signal)
+  onTestFinished(async () => { abort.abort(); await running; await api.close(); await fixture.close() })
+  await vi.waitFor(() => expect(fixture.handshakes.size).toBe(1))
+  abort.abort(); await running
+  await vi.waitFor(() => expect(fixture.handshakes.size).toBe(0))
+})

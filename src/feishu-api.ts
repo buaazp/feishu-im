@@ -74,7 +74,7 @@ export class FeishuApi implements MessageTransport {
     this.tokenRequest ??= (async () => {
       const data = await this.json('/open-apis/auth/v3/tenant_access_token/internal', {
         app_id: this.options.appId, app_secret: this.options.appSecret,
-      }, signal)
+      }, this.lifetime.signal)
       if (data.code !== 0 || typeof data.tenant_access_token !== 'string' || !data.tenant_access_token
         || typeof data.expire !== 'number' || !Number.isFinite(data.expire) || data.expire <= 0) {
         throw new Error('feishu-im: application authentication failed; check App ID and App Secret')
@@ -82,22 +82,24 @@ export class FeishuApi implements MessageTransport {
       this.token = { value: data.tenant_access_token, until: Date.now() + Math.max(0, data.expire - 60) * 1000 }
       return this.token.value
     })().finally(() => { this.tokenRequest = undefined })
-    return this.tokenRequest
+    const pending = this.tokenRequest
+    return new Promise<string>((resolve, reject) => {
+      const abort = () => reject(signal.reason)
+      signal.addEventListener('abort', abort, { once: true })
+      void pending.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort))
+    })
   }
 
-  async request(path: string, body: unknown, signal: AbortSignal, method = 'POST'): Promise<Record<string, unknown>> {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const token = await this.accessToken(signal)
-      const response = await this.json(path, body, signal, method, token)
-      if (response.code === 0) return response
-      if (attempt === 0 && [99991663, 99991664, 99991665, 99991668].includes(Number(response.code))) {
-        if (this.token?.value === token) this.token = undefined
-        continue
-      }
-      // API messages and HTTP client errors can contain credentials. Only expose numeric codes.
-      throw new Error(`feishu-im: Feishu API error ${typeof response.code === 'number' ? response.code : 'invalid response'}`)
+  async request(path: string, body: unknown, signal: AbortSignal, method = 'POST', renewed = false): Promise<Record<string, unknown>> {
+    const token = await this.accessToken(signal)
+    const response = await this.json(path, body, signal, method, token)
+    if (response.code === 0) return response
+    if (!renewed && [99991663, 99991664, 99991665, 99991668].includes(Number(response.code))) {
+      if (this.token?.value === token) this.token = undefined
+      return this.request(path, body, signal, method, true)
     }
-    throw new Error('feishu-im: token renewal failed')
+    // Only expose numeric codes; API messages can contain credentials.
+    throw new Error(`feishu-im: Feishu API error ${typeof response.code === 'number' ? response.code : 'invalid response'}`)
   }
 
   async probe(signal: AbortSignal): Promise<{ name: string; openId: string }> {
@@ -134,7 +136,7 @@ export class FeishuApi implements MessageTransport {
 
   async close(): Promise<void> {
     this.lifetime.abort()
-    await Promise.allSettled(this.requests)
+    await Promise.allSettled([...this.requests, ...(this.tokenRequest ? [this.tokenRequest] : [])])
     this.token = undefined
   }
 }

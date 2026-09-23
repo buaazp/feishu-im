@@ -71,3 +71,66 @@ it('does no network work after cancellation or close', async () => {
   await expect(api.reply('om_input', 'result', 'hello', new AbortController().signal)).rejects.toThrow()
   expect(calls).toHaveLength(0)
 })
+
+it('rejects malformed and oversized HTTP responses and missing bot/message acknowledgements', async () => {
+  const { readJson, record } = await import('../src/feishu-api.ts')
+  for (const value of [null, [], 'x']) expect(() => record(value)).toThrow('invalid API response')
+  await expect(readJson(new Response('failure', { status: 500 }))).rejects.toThrow('HTTP 500')
+  await expect(readJson(new Response(null, { status: 500 }))).rejects.toThrow('HTTP 500')
+  await expect(readJson(new Response(null))).rejects.toThrow('empty API response')
+  await expect(readJson(new Response('123456789'), 4)).rejects.toThrow('size limit')
+  await expect(readJson(new Response('invalid'))).rejects.toThrow()
+  const { api, setHandler } = await fixture(), signal = new AbortController().signal
+  setHandler(() => ({ code: 0, tenant_access_token: '', expire: 0 }))
+  await expect(api.probe(signal)).rejects.toThrow('authentication failed')
+  setHandler(path => path.includes('tenant_access_token') ? { code: 0, tenant_access_token: 'token', expire: 20 } : { code: 0, bot: { open_id: 'invalid' } })
+  await expect(api.probe(signal)).rejects.toThrow('enable the application bot')
+  setHandler(path => path.includes('tenant_access_token') ? { code: 0, tenant_access_token: 'token', expire: 7200 } : { code: 0, bot: { open_id: 'ou_bot' } })
+  expect(await api.probe(signal)).toEqual({ openId: 'ou_bot', name: 'cli_test' })
+  setHandler(() => ({ code: 0, data: {} })); await expect(api.card('om_source', 'phase', {}, signal)).rejects.toThrow('missing reply acknowledgement')
+  setHandler(() => ({ code: 'secret' })); await expect(api.request('/test', {}, signal)).rejects.toThrow('invalid response')
+})
+
+it('shares token acquisition while a cancelled caller leaves another caller running', async () => {
+  const { vi } = await import('vitest')
+  const { api } = await fixture(), token = Promise.withResolvers<Record<string, unknown>>()
+  const original = api.json.bind(api)
+  vi.spyOn(api, 'json').mockImplementation((path, body, signal, method, accessToken) => path.includes('tenant_access_token') ? token.promise : original(path, body, signal, method, accessToken))
+  const one = new AbortController()
+  const first = api.card('om_one', 'phase', {}, one.signal), second = api.card('om_two', 'phase', {}, new AbortController().signal)
+  const cancelled = expect(first).rejects.toThrow(); one.abort(); await cancelled
+  token.resolve({ code: 0, tenant_access_token: 'shared', expire: 7200 })
+  await expect(second).resolves.toBe('om_reply')
+  await api.close()
+})
+
+it('preserves a refreshed token when a late concurrent request rejects the previous token', async () => {
+  const { vi } = await import('vitest')
+  const { api } = await fixture(), late = Promise.withResolvers<Record<string, unknown>>()
+  let issued = 0, requests = 0
+  const json = vi.spyOn(api, 'json').mockImplementation(async (path, _body, _signal, _method, token) => {
+    if (path.includes('tenant_access_token')) return { code: 0, tenant_access_token: `token${++issued}`, expire: 7200 }
+    requests++
+    if (token === 'token1') return requests === 1 ? { code: 99991663 } : late.promise
+    return { code: 0 }
+  })
+  const signal = new AbortController().signal
+  const first = api.request('/first', {}, signal), second = api.request('/second', {}, signal)
+  await first; late.resolve({ code: 99991663 }); await second
+  expect(issued).toBe(2); expect(json.mock.calls.at(-1)?.[4]).toBe('token2')
+})
+
+it('joins active token acquisition during close and contains stream cancellation failure', async () => {
+  const { vi } = await import('vitest')
+  const { readJson } = await import('../src/feishu-api.ts')
+  const body = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new TextEncoder().encode('too large')) }, cancel() { throw new Error('stream failure') } })
+  await expect(readJson(new Response(body), 1)).rejects.toThrow('size limit')
+  const { api } = await fixture(), token = Promise.withResolvers<Record<string, unknown>>()
+  vi.spyOn(api, 'json').mockImplementation(() => token.promise)
+  const pending = api.request('/pending', {}, new AbortController().signal)
+  const rejected = expect(pending).rejects.toThrow()
+  let closed = false
+  const closing = api.close().then(() => { closed = true })
+  await Promise.resolve(); expect(closed).toBe(false)
+  token.reject(new Error('closed')); await closing; await rejected
+})

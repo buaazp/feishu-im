@@ -1,6 +1,7 @@
 /** Test-owned Feishu HTTP + protobuf WebSocket endpoint. No real external messages. */
 import { createServer } from 'node:http'
 import { once } from 'node:events'
+import type { Duplex } from 'node:stream'
 import { randomUUID } from 'node:crypto'
 import { WebSocketServer, WebSocket } from 'ws'
 
@@ -30,7 +31,8 @@ export async function feishuFixture() {
   const messages: Array<{ id: string; replyTo: string; type: string; content: Record<string, unknown>; uuid: string }> = []
   const updates: Array<{ id: string; content: Record<string, unknown> }> = []
   const sockets = new Set<WebSocket>()
-  let ready = true
+  let ready = true, handshakeReady = true
+  const handshakes = new Set<Duplex>()
   const server = createServer(async (req, res) => {
     const chunks = []; for await (const chunk of req) chunks.push(chunk)
     const text = Buffer.concat(chunks).toString(), body = text ? JSON.parse(text) : {}
@@ -57,15 +59,21 @@ export async function feishuFixture() {
     }
     res.statusCode = 404; res.end('{}')
   })
-  const ws = new WebSocketServer({ server, path: '/events' })
+  const ws = new WebSocketServer({ noServer: true })
+  server.on('upgrade', (request, socket, head) => {
+    if (handshakeReady) ws.handleUpgrade(request, socket, head, connection => ws.emit('connection', connection, request))
+    else { handshakes.add(socket); socket.once('close', () => handshakes.delete(socket)); socket.once('end', () => socket.end()); socket.resume() }
+  })
   ws.on('connection', socket => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)) })
   server.listen(0, '127.0.0.1'); await once(server, 'listening')
   const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`
-  return { origin, calls, messages, updates, sockets,
+  return { origin, calls, messages, updates, sockets, handshakes,
+    setHandshakeReady(value: boolean) { handshakeReady = value },
     setReady(value: boolean) { ready = value },
     send(event: unknown) { for (const socket of sockets) socket.send(frame(event)) },
     disconnect() { for (const socket of sockets) socket.terminate() },
     async close() {
+      for (const socket of handshakes) socket.destroy()
       for (const socket of sockets) socket.terminate()
       await new Promise<void>((resolve, reject) => ws.close(error => error ? reject(error) : resolve()))
       server.closeAllConnections(); await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
