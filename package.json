@@ -1,6 +1,6 @@
 {
   "name": "dsh-feishu-im",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Run dsh tasks from Feishu private chats with direct SDK connectivity, live progress and interactive decisions.",
   "type": "module",
   "license": "MIT",
@@ -52,7 +52,7 @@
       "inject": [
         "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-ui-plugin-manager"
+        "@deepseek-ai/dsh-client-ui-renderer"
       ],
       "platform": "web"
     }
@@ -69,24 +69,23 @@
     "package:check": "npm run build && publint && node scripts/check-package.mjs"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "~4.0.4",
-    "@deepseek-ai/cordis-plugin-loader": "~1.0.5",
-    "@deepseek-ai/dsh-agent": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-agent-default-model": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-agent-preset-registry": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-brand": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-client-connection": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-cmdline": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-llm": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-session": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-session-persistence": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-session-query": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-settings": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-user-approval": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-user-questions": "0.1.7-alpha.2"
+    "@deepseek-ai/cordis": "~4.0.2",
+    "@deepseek-ai/cordis-plugin-loader": "~1.0.3",
+    "@deepseek-ai/dsh-agent": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-agent-default-model": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-brand": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-client-connection": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-cmdline": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-llm": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-session": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-session-persistence": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-session-query": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-settings": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-user-approval": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-user-questions": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "~3.18.4",
+    "@deepseek-ai/schemastery": "~3.18.2",
     "@larksuiteoapi/node-sdk": "1.74.0",
     "commander": "^14.0.1",
     "qrcode": "1.5.4",
@@ -99,7 +98,6 @@
     "@deepseek-ai/dsh-client-connection": "0.1.7-alpha.2",
     "@deepseek-ai/dsh-client-locale": "0.1.7-alpha.2",
     "@deepseek-ai/dsh-client-test-runtime": "0.1.7-alpha.2",
-    "@deepseek-ai/dsh-client-ui-plugin-manager": "0.1.7-alpha.2",
     "@deepseek-ai/dsh-client-ui-renderer": "0.1.7-alpha.2",
     "@deepseek-ai/dsh-client-ui-settings": "0.1.7-alpha.2",
     "@deepseek-ai/dsh-client-ui-slots": "0.1.7-alpha.2",
@@ -123,7 +121,8 @@
     "react-test-renderer": "18.3.1",
     "typescript": "~5.9.3",
     "vitest": "4.1.11",
-    "ws": "8.21.3"
+    "ws": "8.21.3",
+    "@deepseek-ai/dsh-agent-preset-registry": "0.1.7-alpha.2"
   },
   "bin": {
     "feishu-im": "./bin/feishu-im.mjs"

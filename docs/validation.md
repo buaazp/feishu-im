@@ -29,3 +29,14 @@ The existing user's profiles were not modified. This verification did not send r
 The packed-install test now preserves the profile's generated `nodeLinker: hoisted` and `autoInstallPeers: false`, changing only the optional `protobufjs` build decision. This exposed and fixed a management-CLI import of the Harness brand helper through reply encoding. CLI help and the complete Web configuration/pairing/preset/restart flow pass with the actual default policy. Local tarball installation uses an absolute path; a bare `artifacts/file.tgz` reproduces pnpm's Git resolution error.
 
 中文：安装回归测试保留真实 profile 的默认依赖策略，只禁用可选脚本；已修复由此暴露的管理命令模块解析问题，并验证绝对路径安装及完整 Web 流程。
+
+## Host compatibility — 0.2.2
+
+- `npm run check`: 111 tests passed with 100% per-file statement, branch, function and line coverage; TypeScript and lint passed.
+- Real packed Web flows pass on the existing published dsh 0.1.5-rc.2 installation and on the pinned 0.1.7-alpha.2 development host: authenticated setup, pairing, actual preset file writes, interactive question cards, stop/cancellation, restart/history and duplicate suppression.
+- Fresh published-host integration also passed. `FEISHU_TEST_DSH_VERSION=0.1.5-rc.2 npm run test:integration` installs a separate published host in a test-owned temporary directory; CI runs this compatibility check alongside the current host. `FEISHU_TEST_DSH=/absolute/path/to/dsh/lib/bin.js` can verify an existing installation without touching its profiles.
+- The local 0.2.2 artifact was installed into the existing user Web profile; `feishu-im --version` and setup help passed, with global dsh retained at 0.1.5-rc.2.
+- Legacy and current browser slots are covered by component tests. A fresh visual check of the old host could not run because the browser automation connection was unavailable; the 0.1.7 page was visually checked during 0.2.0 development.
+- The candidate 0.1.2-rc.1 has the required API declarations but fails its fresh Web boot with current transitive HMR dependencies. It is excluded from the supported range. No upstream runtime was patched to make a test pass.
+
+中文：0.2.2 将最低已验证版本降至 dsh 0.1.5-rc.2，保留 0.1.7-alpha.2 支持。111 项测试及全部源码覆盖率检查通过；真实安装流程覆盖任务工具、交互卡片回答、取消和重启去重。本轮旧版页面组件测试通过，但浏览器自动化连接不可用，未完成新的旧版页面目视验证。未发送真实飞书消息。

@@ -41,9 +41,13 @@ export const Config: z<Partial<Config>, Config> = z.object({
   progressIntervalMs: positive().default(1_000),
   interactionTimeoutMs: positive().default(300_000),
 })
-/** Atomic, live account updates exposed through dsh's revisioned settings service. */
-export const LiveConfig = z.object({ account: Config.default(Config({})).volatile() })
-export type LiveConfig = ReturnType<typeof LiveConfig>
+export interface LiveConfig { account: Config | { get(): Readonly<Config> } }
+/** Old dsh uses SettingsScope.watch; newer dsh supplies a volatile Config reference. */
+export function configurationSchema(account: typeof Config): z<Partial<LiveConfig>, LiveConfig> {
+  const schema = account.default(account({}))
+  return z.object({ account: typeof schema.volatile === 'function' ? schema.volatile() : schema }) as z<Partial<LiveConfig>, LiveConfig>
+}
+export const LiveConfig = configurationSchema(Config)
 
 export function validateConfig(config: Config): void {
   if (!/^cli_[0-9a-fA-F]{16}$/.test(config.appId)) throw new Error('feishu-im: invalid App ID')

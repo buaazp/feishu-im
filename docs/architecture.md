@@ -2,7 +2,7 @@
 
 [中文](architecture.zh-CN.md)
 
-The independent bundle adds a channel beside a profile-owned dsh runner. The management executable edits configuration and diagnoses credentials; it never launches Agent applications. Published Harness packages remain external at `0.1.7-alpha.2`.
+The independent bundle adds a channel beside a profile-owned dsh runner. The management executable edits configuration and diagnoses credentials; it never launches Agent applications. Published Harness packages remain external; the minimum supported dsh is `0.1.5-rc.2`.
 
 ## Connection and configuration
 
@@ -10,7 +10,7 @@ The independent bundle adds a channel beside a profile-owned dsh runner. The man
 
 `FeishuEvents` uses the official SDK's WebSocket client and dispatcher. Its public HTTP adapter owns endpoint discovery, and public Node agents own sockets through handshake and close. Closing cancels discovery, force-closes the SDK and awaits owned sockets/requests. Malformed and unsupported events are contained at the boundary. Logs do not print SDK credential or ticket objects.
 
-The `account` volatile schema marks App Secret as a secret. The configuration page uses dsh's authenticated Connection transport and revisioned Settings service. QR registration follows Feishu's official app-registration API with minimal bot permissions and explicit scanner identity. Unlike the SDK registration helper, every initial request, poll and delay is cancellable and bounded. Manual setup uses a random, expiring, one-use pairing code. No local lark-cli state is read.
+A capability-based adapter uses the published SettingsScope register/get/watch API on older dsh and volatile Config/SettingsForms on 0.1.7. Both mark App Secret as a secret and use the same revisioned account updates. The browser registers both the old settings namespace slot and the new bundle/row slots; absent slots remain inactive. The configuration page uses dsh's authenticated Connection transport and revisioned Settings service. QR registration follows Feishu's official app-registration API with minimal bot permissions and explicit scanner identity. Unlike the SDK registration helper, every initial request, poll and delay is cancellable and bounded. Manual setup uses a random, expiring, one-use pairing code. No local lark-cli state is read.
 
 Reconfiguration serializes generations: abort the old connection, cancel and join its tasks and decisions, then start the latest account. Missing configuration or connection failure leaves the Web application available for repair.
 
@@ -29,8 +29,8 @@ Agent-scoped approval and user-question waterfalls route to single-use cards. Ea
 ## Source contracts
 
 - [Official Feishu SDK](https://github.com/larksuite/node-sdk): WSClient, EventDispatcher and registerApp.
-- Published `dsh-agent`, `dsh-agent-preset-registry`, `dsh-session-query`: Agent ownership and durable history.
-- Published `dsh-settings`, `dsh-client-connection`, `dsh-client-ui-plugin-manager`: profile persistence, authenticated browser transport and bundle configuration slots.
+- Published `dsh-agent`, `dsh-agent-presets` / `dsh-agent-preset-registry`, `dsh-session-query`: Agent ownership and durable history.
+- Published `dsh-settings`, `dsh-client-connection`, `dsh-client-ui-slots`: profile persistence, authenticated browser transport and bundle configuration slots.
 - Published `dsh-user-approval`, `dsh-user-questions`: scoped decision protocols.
 
 Tests use isolated fake Feishu HTTP/WebSocket servers, published real Agents and a packed real Web profile. No real messages are sent by automation.

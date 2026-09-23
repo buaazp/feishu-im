@@ -29,7 +29,7 @@ export async function diagnose(environment: ManagementEnvironment): Promise<Diag
   try {
     config = await readConfiguration(environment.directory)
     checks.push({ name: 'configuration', status: 'pass', detail: `${config.appId}; ${config.allowedUsers.length} authorized user(s)` })
-  } catch { return [{ name: 'configuration', status: 'fail', detail: 'Configure Feishu IM on the dsh Plugins page first.' }] }
+  } catch { return [{ name: 'configuration', status: 'fail', detail: 'No valid profile override. Use setup, or check live configuration on the Feishu IM page.' }] }
   try { await checkWorkspace(config.cwd, environment.directory); checks.push({ name: 'workspace', status: 'pass', detail: config.cwd }) }
   catch { checks.push({ name: 'workspace', status: 'fail', detail: 'Choose a readable, writable task directory outside the profile.' }) }
   try { await probe(environment, config); checks.push({ name: 'bot', status: 'pass', detail: 'Bot credentials verified directly with Feishu.' }) }
@@ -40,7 +40,8 @@ export async function diagnose(environment: ManagementEnvironment): Promise<Diag
 export function createManagementProgram(environment: ManagementEnvironment): Command {
   const program = new Command().name('feishu-im').description('Configure the direct Feishu channel. For QR setup, open Feishu IM on the dsh Plugins page.').version(environment.version)
   program.exitOverride().configureOutput({ writeOut: environment.write, writeErr: environment.writeError })
-  program.command('setup').description('Save App ID and an App Secret read from standard input; restart dsh afterward.')
+  program.addHelpText('after', '\nOn dsh before 0.1.7, saved Web settings override profile defaults. Manage those settings on the Feishu IM page.')
+  program.command('setup').description('Save profile defaults with an App Secret from stdin; restart dsh afterward.')
     .requiredOption('--app-id <id>', 'Feishu application App ID')
     .requiredOption('--secret-stdin', 'Read App Secret from standard input')
     .requiredOption('--workspace <path>', 'Task workspace outside the profile directory')
@@ -56,16 +57,16 @@ export function createManagementProgram(environment: ManagementEnvironment): Com
       validateConfig(config); await checkWorkspace(config.cwd, environment.directory)
       await probe(environment, config)
       await writeConfiguration(environment.directory, config)
-      environment.write(`Configured ${config.appId}. Restart dsh. Authorize users on the Feishu IM page before sending tasks.\n`)
+      environment.write(`Configured profile defaults for ${config.appId}. Restart dsh. Existing Web settings on older dsh override these defaults.\n`)
     })
-  program.command('doctor').description('Check configuration, workspace and bot credentials; sends no messages.')
+  program.command('doctor').description('Check profile override credentials and workspace; Web settings may override these. Sends no messages.')
     .option('--json', 'Print a machine-readable report')
     .action(async (options: { json?: boolean }) => {
       const checks = await diagnose(environment), ok = checks.every(check => check.status === 'pass')
       environment.write(options.json ? JSON.stringify({ ok, checks }, null, 2) + '\n' : checks.map(check => `${check.status === 'pass' ? 'OK' : 'FAIL'} ${check.name}: ${check.detail}`).join('\n') + '\n')
       environment.exitCode(ok ? 0 : 1)
     })
-  program.command('reset').description('Remove the plugin configuration; preserve Session history.')
-    .action(async () => { await resetConfiguration(environment.directory); environment.write('Removed Feishu IM configuration. Restart dsh.\n') })
+  program.command('reset').description('Remove the profile override; preserve saved Web settings and Session history.')
+    .action(async () => { await resetConfiguration(environment.directory); environment.write('Removed Feishu IM profile override. Clear saved Web credentials on the Feishu IM page, then restart dsh.\n') })
   return program
 }

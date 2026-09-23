@@ -12,7 +12,7 @@
 
 ## 安装
 
-使用 Node.js `^22.19.0` 或 `>=24.0.0`，以及发布的 `@deepseek-ai/dsh@0.1.7-alpha.2`。Harness 仍处于预稳定阶段，请使用这个经过验证的版本。
+使用 Node.js `^22.19.0` 或 `>=24.0.0`。dsh 最低支持 **`0.1.5-rc.2`**，同时验证 `0.1.7-alpha.2`；已有 `0.1.5-rc.2` 无需升级。支持的预发布版本范围见[兼容说明](docs/compatibility.md)。
 
 从本仓库构建安装包：
 
@@ -21,7 +21,7 @@ npm ci
 npm run build
 mkdir -p artifacts
 npm pack --pack-destination artifacts
-dsh plugin --profile web add "$PWD/artifacts/dsh-feishu-im-0.2.1.tgz"
+dsh plugin --profile web add "$PWD/artifacts/dsh-feishu-im-0.2.2.tgz"
 ```
 
 这里必须使用绝对路径：dsh 在 profile 目录里运行 pnpm。直接写 `artifacts/package.tgz` 可能被当成 GitHub 仓库名，引发 `ERR_PNPM_GIT_RESOLVE_FAILED`；修改 GitHub 认证配置不能修复这个路径。
@@ -29,6 +29,8 @@ dsh plugin --profile web add "$PWD/artifacts/dsh-feishu-im-0.2.1.tgz"
 pnpm 11+ 可能提示 `protobufjs` 安装脚本待决定。dsh 插件页可选择“允许这些脚本并重试”。这个依赖的脚本只检查版本范围；也可以在对应 profile 的 `pnpm-workspace.yaml` 中明确设置 `allowBuilds.protobufjs: false` 后重试，插件已验证不依赖该脚本。不要覆盖文件里的其他配置。
 
 重启 `dsh --profile web`，打开侧栏的**插件**，进入 **dsh-feishu-im**。插件与 Web 应用并存，不替换 dsh 的启动入口。
+
+旧版 dsh 的配置入口是 **设置 → 插件 → feishu-im**。
 
 ## 连接机器人
 
@@ -69,7 +71,7 @@ pnpm 11+ 可能提示 `protobufjs` 安装脚本待决定。dsh 插件页可选�
 
 0.2 移除了 `command`、`profile`、`maxRecordBytes` 和 `graceMs`。不读取或复制 lark-cli 的任何凭据。
 
-建议将新版本安装到已有 Web profile，并在配置页重新输入凭据或扫码。移除旧 profile 中由 `dsh-feishu-im` 占用的 `headless-runner` 行；不要移除其他插件的 runner。新配置保存在 `id: feishu-im` 的 `config.account` 下。
+建议将新版本安装到已有 Web profile，并在配置页重新输入凭据或扫码。移除旧 profile 中由 `dsh-feishu-im` 占用的 `headless-runner` 行；不要移除其他插件的 runner。profile 默认配置保存在 `id: feishu-im` 的 `config.account` 下；0.1.7 之前的 dsh 将页面配置保存到其 settings 文档的 `feishu-im.account` 命名空间。
 
 旧会话需要原 Session 存储、原工作目录及显式的 `legacyNamespace`（旧 lark-cli profile 名）。preset-free 旧会话不能在 Web preset 下直接恢复；保留原始应用组合才能继续，或使用新会话。见[配置参考](docs/configuration.zh-CN.md)。
 

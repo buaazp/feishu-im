@@ -2,7 +2,7 @@
 
 [中文](configuration.zh-CN.md) · [Quick start](../README.md)
 
-The bundle inserts an additive `feishu-im` entry. Its `config.account` is one atomic, live setting. The dsh page verifies bot credentials before saving and stores the secret in the profile with mode `0600`. Keep the profile outside the bot's workspace and out of Git. Blank credentials leave the channel unconfigured without stopping dsh.
+The bundle inserts an additive `feishu-im` entry. Its `config.account` is one atomic, live setting. The dsh page verifies credentials before saving. On 0.1.7 it writes the profile with mode `0600`; older dsh uses its SettingsProvider document (default `$DSH_HOME/settings.yaml`), under `feishu-im.account`, overriding profile defaults. Older profiles sharing DSH_HOME share this namespace; use separate DSH_HOME directories for different bots. Keep the profile outside the bot's workspace and out of Git. Blank credentials leave the channel unconfigured without stopping dsh.
 
 ```yaml
 - id: feishu-im
@@ -52,3 +52,5 @@ dsh plugin --profile web exec feishu-im reset
 ```
 
 `setup` also accepts `--locale`, `--lark` and `--legacy-namespace`. CLI edits require a dsh restart. Use the Web page for QR setup and live changes. `doctor` checks configuration, workspace and bot credentials without sending messages or opening the event connection. `reset` removes only this plugin's override and keeps Session history.
+
+On older dsh, CLI `setup`, `doctor` and `reset` only manage or inspect the profile override, not saved Web settings. Once configured on the page, keep editing there and use **Disconnect and clear credentials** to remove the saved secret. Before upgrading dsh, record non-secret settings and reconfigure on the new page. The plugin does not automatically copy credentials between storage formats or convert host Session formats.

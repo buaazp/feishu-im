@@ -11,7 +11,6 @@ import { feishuFixture, nativeMessage } from './feishu-fixture.ts'
 
 const execute = promisify(execFile)
 const repo = fileURLToPath(new URL('../', import.meta.url))
-const dsh = join(dirname(fileURLToPath(import.meta.resolve('@deepseek-ai/dsh/package.json'))), 'lib/bin.js')
 
 it('installs into dsh Web, configures through authenticated RPC and drives persisted preset tools', async ({ onTestFinished }) => {
   const cleanup: Array<() => Promise<unknown>> = []
@@ -22,9 +21,16 @@ it('installs into dsh Web, configures through authenticated RPC and drives persi
   })
   const root = await mkdtemp(join(tmpdir(), 'feishu-web-install-'))
   cleanup.push(() => rm(root, { recursive: true, force: true }))
+  let dsh = process.env.FEISHU_TEST_DSH ?? join(dirname(fileURLToPath(import.meta.resolve('@deepseek-ai/dsh/package.json'))), 'lib/bin.js')
+  if (process.env.FEISHU_TEST_DSH_VERSION) {
+    const host = join(root, 'host'); await mkdir(host)
+    await writeFile(join(host, 'package.json'), JSON.stringify({ private: true }))
+    await execute('npm', ['install', '--prefix', host, '--ignore-scripts', '--no-audit', '--no-fund', `@deepseek-ai/dsh@${process.env.FEISHU_TEST_DSH_VERSION}`], { timeout: 120_000, maxBuffer: 4_194_304 })
+    dsh = join(host, 'node_modules/@deepseek-ai/dsh/lib/bin.js')
+  }
   const fixture = await feishuFixture(); cleanup.push(() => fixture.close())
   const cwd = join(root, 'work'); await mkdir(cwd)
-  const env = { ...process.env, DSH_HOME: join(root, 'home'), DSH_AGENTS_HOME: join(root, 'agents'), DEEPSEEK_API_KEY: '', CI: 'true' }
+  const env = { ...process.env, DSH_HOME: join(root, 'home'), DSH_AGENTS_HOME: join(root, 'agents'), DEEPSEEK_API_KEY: '', DSH_TELEMETRY_DISABLED: '1', CI: 'true' }
   const cli = (...args: string[]) => execute(process.execPath, [dsh, ...args], { cwd, env, timeout: 120_000, maxBuffer: 4_194_304 })
   const packed = await execute('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', root], { cwd: repo })
   const { filename, files } = (JSON.parse(packed.stdout) as Array<{ filename: string; files: Array<{ path: string }> }>)[0]!
@@ -71,7 +77,7 @@ it('installs into dsh Web, configures through authenticated RPC and drives persi
     await vi.waitFor(() => expect(output, output).toContain('dsh web: http'), { timeout: 30_000 })
     const url = /dsh web: (http:\/\/\S+)/.exec(output)![1]!
     origin = new URL(url).origin
-    const login = await fetch(url, { redirect: 'manual' })
+    const login = await fetch(url, { redirect: 'manual' }).catch(error => { throw new Error(`Login: ${String(error)}\n${output}`, { cause: error }) })
     cookie = login.headers.getSetCookie().map(value => value.split(';')[0]).join('; ')
     expect(cookie).toBeTruthy()
   }
@@ -86,7 +92,11 @@ it('installs into dsh Web, configures through authenticated RPC and drives persi
   }
   const reply = async (id: string, text: string) => vi.waitFor(() => {
     expect(fixture.messages.some(row => row.replyTo === id && JSON.stringify(row.content).includes(text)), `${JSON.stringify(fixture.messages)}\n${output}`).toBe(true)
-  }, { timeout: 30_000 })
+  }, { timeout: 30_000 }).catch(async error => {
+    const paths = await readdir(join(root, 'sessions'), { recursive: true }).catch(() => [])
+    const logs = await Promise.all(paths.filter(path => /session\.v\d+\.jsonl$/.test(path)).map(async path => (await readFile(join(root, 'sessions', path), 'utf8')).slice(-12000)))
+    throw new Error(`${String(error)}\nSession logs: ${logs.join('\n')}\nLast card updates: ${JSON.stringify(fixture.updates.slice(-3))}`)
+  })
   await start()
   if (process.env.FEISHU_PREVIEW_FILE) {
     const preview = process.env.FEISHU_PREVIEW_FILE
@@ -96,7 +106,7 @@ it('installs into dsh Web, configures through authenticated RPC and drives persi
     cleanup.push(() => rm(`${preview}.done`, { force: true }))
     await vi.waitFor(() => access(`${preview}.done`), { timeout: 150_000, interval: 500 })
   }
-  const untrusted = await fetch(`${origin}/api/feishu-im/status`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+  const untrusted = await fetch(`${origin}/api/feishu-im/status`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }).catch(error => { throw new Error(`Authentication: ${String(error)}\n${output}`, { cause: error }) })
   expect(untrusted.status, output).toBe(401)
   const initial = await rpc('status'); expect(initial).toMatchObject({ ok: true, value: { state: 'unconfigured', hasSecret: false } })
   const configured = await rpc('save', { revision: initial.value.revision, appId: 'cli_0123456789abcdef', appSecret: 'fixture-only-secret', cwd, allowedUsers: [], locale: 'zh-CN' })
@@ -117,6 +127,16 @@ it('installs into dsh Web, configures through authenticated RPC and drives persi
   fixture.send(nativeMessage('first', 'write validation file')); fixture.send(nativeMessage('second', 'continue conversation'))
   await reply('om_second', '第 2 条消息')
   expect(fixture.messages.filter(row => row.replyTo === 'om_first')).toHaveLength(before)
+  fixture.send(nativeMessage('question', 'confirm test choice'))
+  const decision = () => fixture.messages.find(row => row.replyTo === 'om_question' && JSON.stringify(row.content).includes('select_static'))
+  await vi.waitFor(() => expect(decision(), output).toBeDefined())
+  const card = decision()!, body = card.content.body as { elements: Array<{ tag: string; elements: Array<{ tag: string; value?: unknown }> }> }
+  const value = body.elements.find(element => element.tag === 'form')!.elements.find(element => element.tag === 'button')!.value
+  fixture.send({ schema: '2.0', header: { event_type: 'card.action.trigger', event_id: 'evt_choice', app_id: 'cli_0123456789abcdef' },
+    event: { operator: { open_id: 'ou_owner' }, context: { open_message_id: card.id, open_chat_id: 'oc_chat' }, action: { value, form_value: { q0: '0' } } } })
+  await reply('om_question', '第 3 条消息')
+  fixture.send(nativeMessage('holding', 'hold')); await reply('om_holding', '开始处理')
+  fixture.send(nativeMessage('stop', '/dsh stop')); await reply('om_stop', '停止')
   const reloaded = await rpc('status')
   expect(reloaded.value.config.allowedUsers).toEqual(['ou_owner'])
   const disconnect = await rpc('disconnect', { revision: reloaded.value.revision }); expect(disconnect.ok).toBe(true)
@@ -126,5 +146,6 @@ it('installs into dsh Web, configures through authenticated RPC and drives persi
   const logPath = paths.find(path => /session\.v\d+\.jsonl$/.test(path))!
   const log = await readFile(join(root, 'sessions', logPath), 'utf8')
   expect(log).toContain('lark:om_second'); expect(log).toContain('tool/result'); expect(log).toContain('agentPreset')
+  expect(log).toContain('Proceed')
   expect((await readFile(patchPath, 'utf8'))).not.toContain('fixture-only-secret')
 })

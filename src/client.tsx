@@ -3,7 +3,6 @@ import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ClientConnectionRpc, ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import type { PluginConfigViewProps } from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 
 declare module '@deepseek-ai/cordis' { interface Context { connection: ConnectionHandle } }
@@ -14,7 +13,16 @@ interface Status {
   qr: { state: string; image?: string; expiresAt?: number } | null
   pairing: { code: string; expiresAt: number } | null
 }
-interface Props extends PluginConfigViewProps { rpc: ClientConnectionRpc; locale: LocaleRuntime }
+interface Props { rpc: ClientConnectionRpc; locale: LocaleRuntime; view?: 'summary' | 'page' }
+
+// Public configuration slots before and after the 0.1.7 Plugins-page redesign.
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface SlotMap {
+    'settings.plugin.item': { kind: 'keyed'; scope: 'root'; owner: { children?: never } }
+    'plugins.bundle.config': { kind: 'keyed'; scope: 'root'; owner: { view: 'summary' | 'page' } }
+    'plugins.row.config': { kind: 'keyed'; scope: 'root'; owner: { view: 'summary' | 'page' } }
+  }
+}
 const copy = {
   zh: { summary: '扫码连接飞书，让机器人协助你完成 dsh 任务。', title: '连接飞书', intro: '配置机器人后，在飞书私聊中发送任务，并通过卡片查看进展、回答问题和确认操作。',
     qr: '扫码创建机器人', manual: '使用已有应用', workspace: '任务工作目录', workspaceHint: '机器人将在这个目录中执行任务，请填写绝对路径。', generate: '生成二维码', cancel: '取消扫码', scan: '使用飞书扫描二维码，并在手机上确认创建应用。',
@@ -39,7 +47,7 @@ const copy = {
 }
 const styles = `.feishu-settings{max-width:650px;display:grid;gap:20px;font-size:14px;line-height:1.6;color:inherit}.feishu-settings h2{font-size:21px;font-weight:650;margin:0}.feishu-settings p{margin:6px 0;opacity:.8}.feishu-settings label{display:grid;gap:6px;font-weight:550}.feishu-settings input,.feishu-settings select,.feishu-settings textarea{width:100%;box-sizing:border-box;border:1px solid color-mix(in srgb,currentColor 24%,transparent);border-radius:8px;padding:10px 12px;background:transparent;color:inherit;font:inherit}.feishu-settings input:focus-visible,.feishu-settings textarea:focus-visible,.feishu-settings select:focus-visible,.feishu-settings button:focus-visible{outline:2px solid #6384e6;outline-offset:3px}.feishu-settings button{border:1px solid color-mix(in srgb,currentColor 24%,transparent);border-radius:8px;padding:9px 14px;background:transparent;color:inherit;font:inherit;cursor:pointer}.feishu-settings button.primary{background:#315bc3;border-color:#315bc3;color:#fff}.feishu-settings button:disabled{opacity:.45;cursor:default}.feishu-settings .tabs{display:flex;gap:8px;flex-wrap:wrap}.feishu-settings .tabs [aria-pressed=true]{background:color-mix(in srgb,#6384e6 15%,transparent);border-color:#6384e6}.feishu-settings .panel{display:grid;gap:16px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:12px;padding:20px}.feishu-settings .status{display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:5px 10px;border-radius:20px;background:color-mix(in srgb,currentColor 7%,transparent)}.feishu-settings .status::before{content:'';width:7px;height:7px;background:#888;border-radius:50%}.feishu-settings .status[data-state=connected]::before{background:#2aa66e}.feishu-settings .error{color:#c64747}.feishu-settings .qr-image{width:232px;height:232px;max-width:100%;margin:auto;background:white;border-radius:10px}.feishu-settings code{display:block;overflow-wrap:anywhere;padding:12px;border-radius:8px;background:color-mix(in srgb,currentColor 6%,transparent);user-select:all}.feishu-settings small{opacity:.72;font-weight:400}.feishu-settings a{color:#6384e6;text-decoration:underline}.feishu-settings fieldset{border:0;padding:0;margin:0;display:grid;gap:16px;min-width:0}@media(max-width:500px){.feishu-settings .panel{padding:14px}.feishu-settings .tabs button{flex:1}}`
 
-export function FeishuPage({ rpc, locale, view }: Props) {
+export function FeishuPage({ rpc, locale, view = 'page' }: Props) {
   const language = useSyncExternalStore(listener => locale.subscribe(listener), () => locale.getSnapshot()).active
   const t = copy[language.startsWith('zh') ? 'zh' : 'en']
   const [status, setStatus] = useState<Status>(), [tab, setTab] = useState<'qr' | 'manual'>('qr')
@@ -127,6 +135,7 @@ export function FeishuPage({ rpc, locale, view }: Props) {
 export const inject = ['slots', 'connection', 'locale']
 export function apply(ctx: Context): void {
   const face = () => ({ rpc: ctx.connection.rpc, locale: ctx.locale })
+  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({ name: 'settings.plugin.item', key: 'feishu-im', inject: face }, FeishuPage))
   ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({ name: 'plugins.bundle.config', key: 'dsh-feishu-im', inject: face }, FeishuPage))
   ctx.slots.inject('plugins.row.config', () => ctx.slots.register({ name: 'plugins.row.config', key: 'dsh-feishu-im#feishu-im', inject: face }, FeishuPage))
 }

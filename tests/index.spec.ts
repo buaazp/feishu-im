@@ -110,3 +110,20 @@ it('waits for the profile loader and cancels startup while that loader is pendin
     loaded.resolve(); await closed; expect(configure).not.toHaveBeenCalled()
   } finally { configure.mockRestore() }
 })
+
+it('reconfigures the runtime from legacy settings changes and detaches the watcher', async () => {
+  const h = await createDriverHarness(cleanup)
+  provideCmdline(h.ctx, { args: [], exit: vi.fn() })
+  let current = Config({}), notify!: () => Promise<void>
+  const release = vi.fn()
+  h.ctx.provide('settings', { register: () => ({ get: () => ({ account: current }), watch: (callback: typeof notify) => { notify = callback; return release } }) } as unknown as Context['settings'])
+  h.ctx.provide('connection', { fetch: { register: () => async () => {} } } as unknown as Context['connection'])
+  const configure = vi.spyOn(FeishuRuntime.prototype, 'configure').mockResolvedValue()
+  try {
+    apply(h.ctx, { account: Config({}) })
+    await vi.waitFor(() => expect(configure).toHaveBeenCalledWith(current))
+    current = h.config; await notify()
+    expect(configure).toHaveBeenLastCalledWith(h.config)
+    await h.ctx.fiber.dispose(); expect(release).toHaveBeenCalledOnce()
+  } finally { configure.mockRestore() }
+})

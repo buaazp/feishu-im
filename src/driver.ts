@@ -3,7 +3,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { installModelSelection, type AgentHandle } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
-import type {} from '@deepseek-ai/dsh-agent-preset-registry'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { errorChain, freezeMessage, type MessageId, type UserMessage } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
@@ -16,6 +15,19 @@ import type { CardAction } from './feishu-events.ts'
 import { TaskFeedback, feedbackCopy } from './task-feedback.ts'
 import { CardInteractions } from './card-interactions.ts'
 import { messages, type Locale } from './messages.ts'
+
+/** Shared public face of dsh-agent-presets and its later registry package. */
+interface PresetRegistry {
+  resolve(): Promise<{ id: string }>
+  mount(ctx: Context, id: string): Promise<unknown>
+}
+
+// Both published preset packages record this same durable selection event.
+declare module '@deepseek-ai/dsh-session/types' {
+  interface SessionEventMap {
+    'agent-preset/selected': { agentPreset: string }
+  }
+}
 
 interface Worker {
   controller: AbortController
@@ -148,7 +160,7 @@ export class FeishuDriver {
       if (this.ctx.agents.get(id) !== undefined) throw new Error('feishu-im: Session already has a live owner')
       const stored = await this.ctx.sessionPersistence.stat(id)
       signal.throwIfAborted()
-      const presets = this.ctx.get('agentPresets')
+      const presets = this.ctx.get('agentPresets') as PresetRegistry | undefined
       let presetId: string | undefined
       const admitted = new Set<MessageId>()
       if (stored !== undefined) {

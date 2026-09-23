@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+
+- Lower the minimum supported dsh to `0.1.5-rc.2`, Cordis to `4.0.2`, loader to `1.0.3`, and Schemastery to `3.18.2`. Preserve support for `0.1.7-alpha.2`.
+- Adapt the published legacy settings and configuration slots, and remove the requirement for the newer preset-registry package.
+- Verify packed installation, pairing, real preset tools, interactive answers, cancellation and restart deduplication on both host generations. Clarify legacy Web settings precedence in CLI help and both user guides.
+
 ## 0.2.1
 
 - Use an absolute tarball path in the copyable installation command to avoid pnpm treating it as a GitHub repository.

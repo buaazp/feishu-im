@@ -32,13 +32,15 @@ async function harness(zh = true, configured = false, summary = false) {
   return { get renderer() { return renderer }, call, click, change, poll, props, setStatus(patch: Partial<typeof status>) { status = { ...status, ...patch } }, get status() { return status } }
 }
 
-it('renders the bilingual summary and registers both bundle and row configuration entries', async () => {
+it('renders new summary and legacy page slots with the same configuration controls', async () => {
   const h = await harness(true, false, true)
   expect(JSON.stringify(h.renderer.toJSON())).toContain('扫码连接飞书'); expect(h.call).not.toHaveBeenCalled()
-  await act(async () => h.renderer.update(<FeishuPage {...h.props} view="page" />)); expect(h.call).toHaveBeenCalled()
+  await act(async () => h.renderer.update(<FeishuPage rpc={h.props.rpc} locale={h.props.locale} />)); expect(h.call).toHaveBeenCalled()
+  await h.click('使用已有应用')
+  expect(h.renderer.root.findByType('form')).toBeDefined()
   const entries: unknown[] = []
   apply({ slots: { inject: (_name: string, register: () => void) => register(), register: (options: { inject: () => unknown }) => { entries.push(options); options.inject() } }, connection: { rpc: h.props.rpc }, locale: h.props.locale } as unknown as Context)
-  expect(entries).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'dsh-feishu-im' }), expect.objectContaining({ key: 'dsh-feishu-im#feishu-im' })]))
+  expect(entries).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'dsh-feishu-im' }), expect.objectContaining({ key: 'dsh-feishu-im#feishu-im' }), expect.objectContaining({ name: 'settings.plugin.item', key: 'feishu-im' })]))
 })
 
 it('keeps secrets blank, submits explicit form values, pairs and disconnects', async () => {

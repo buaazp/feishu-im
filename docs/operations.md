@@ -24,3 +24,5 @@ Install into a dsh Web profile, restart it from the task workspace, then configu
 Stopping dsh or replacing account settings cancels and awaits owned work. Old cards never authorize new tasks after restart. Persist the dsh Session storage to retain deduplication. The plugin does not guarantee event backfill or durable message delivery while Feishu is disconnected.
 
 Only the dsh-authenticated operator can change configuration or see a pairing code. Do not share dsh login URLs, profile files or App Secrets. Treat an authorized bot user as someone who can use the tools permitted by the dsh deployment. Rotate compromised credentials in the developer console and save the new secret on the page.
+
+If installation succeeds with only Harness `missing peer` warnings, verify the host version against the compatibility matrix. dsh supplies these external modules at runtime, and profiles use `autoInstallPeers: false`. Do not install a second Harness dependency tree just to silence the warning.

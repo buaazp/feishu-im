@@ -2,7 +2,7 @@
 
 [English](architecture.md)
 
-这是独立 dsh 插件，作为消息通道与 profile 的应用入口并存。管理命令只配置和诊断，不启动 Agent。Harness 依赖保持外部发布版本 `0.1.7-alpha.2`。
+这是独立 dsh 插件，作为消息通道与 profile 的应用入口并存。管理命令只配置和诊断，不启动 Agent。Harness 依赖保持外部发布版本，最低支持 dsh `0.1.5-rc.2`。
 
 ## 连接与配置
 
@@ -10,7 +10,7 @@
 
 `FeishuEvents` 使用官方 SDK 的 WebSocket 客户端和事件分发器。公开 HTTP 适配器管理连接发现请求，公开 Node Agent 管理握手和连接 socket。关闭时取消连接发现、强制关闭 SDK，并等待持有的请求和 socket 结束。畸形事件被隔离，日志不输出 SDK 的凭据或连接票据。
 
-`account` 是实时配置对象，App Secret 标记为 secret。配置页通过 dsh 的已认证 Connection 和带修订号的 Settings 服务读写。扫码直接调用飞书官方应用注册 API，请求最小机器人权限，仅绑定明确返回的扫码用户身份。初始请求、轮询和等待均可取消且有时间上限，避免 SDK 注册辅助函数初始请求无法取消的问题。手动配置使用随机、限时、一次性的配对码。全程不读取 lark-cli 本地状态。
+兼容层在旧版 dsh 使用公开 SettingsScope register/get/watch，在 0.1.7 使用 volatile Config/SettingsForms；两者都按修订号实时更新 `account`，App Secret 标记为 secret。浏览器同时注册旧版 settings 命名空间入口和新版 bundle/row 入口，不存在的入口不会激活。配置页通过 dsh 的已认证 Connection 和带修订号的 Settings 服务读写。扫码直接调用飞书官方应用注册 API，请求最小机器人权限，仅绑定明确返回的扫码用户身份。初始请求、轮询和等待均可取消且有时间上限，避免 SDK 注册辅助函数初始请求无法取消的问题。手动配置使用随机、限时、一次性的配对码。全程不读取 lark-cli 本地状态。
 
 配置更新按代串行处理：中止旧连接，取消并等待任务和确认结束，再启动最新应用。未配置或连接失败不会关闭 Web 应用，用户仍能进入页面修复。
 
@@ -28,6 +28,6 @@ Agent 作用域内的 approval 和 user-question waterfall 转为一次性交互
 
 ## 依据与测试
 
-实现依据[飞书官方 SDK](https://github.com/larksuite/node-sdk)及发布的 `dsh-agent`、`dsh-agent-preset-registry`、`dsh-session-query`、`dsh-settings`、`dsh-client-connection`、`dsh-client-ui-plugin-manager`、`dsh-user-approval`、`dsh-user-questions` 公开契约。
+实现依据[飞书官方 SDK](https://github.com/larksuite/node-sdk)及发布的 `dsh-agent`、`dsh-agent-presets` / `dsh-agent-preset-registry`、`dsh-session-query`、`dsh-settings`、`dsh-client-connection`、`dsh-client-ui-slots`、`dsh-user-approval`、`dsh-user-questions` 公开契约。
 
 自动化使用隔离的假飞书 HTTP/WebSocket 服务、发布的真实 Agent 和安装 tarball 的真实 Web profile，不发送真实消息。

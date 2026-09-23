@@ -8,6 +8,7 @@ import { readJson } from './feishu-api.ts'
 import { Config as AccountConfig, LiveConfig } from './config.ts'
 import { FeishuRuntime } from './runtime.ts'
 import { SetupManager } from './setup-manager.ts'
+import { bindSettings, readAccount } from './settings-compat.ts'
 
 export { LiveConfig as Config } from './config.ts'
 export const name = 'feishu-im'
@@ -16,7 +17,7 @@ export const inject = ['agents', 'agentDefaultModel', 'sessions', 'sessionPersis
 export function apply(ctx: Context, config: LiveConfig): void {
   if (ctx.get('appExit') === undefined) throw new Error('feishu-im: launch through a dsh profile')
   const runtime = new FeishuRuntime(ctx)
-  const account = (): AccountConfig => { const value = config.account.get(); return { ...value, allowedUsers: [...value.allowedUsers] } }
+  let account = (): AccountConfig => readAccount(config)
   ctx.on('loader/volatile-update', () => { void runtime.configure(account()) })
   ctx.effect(() => {
     const controller = new AbortController()
@@ -27,8 +28,8 @@ export function apply(ctx: Context, config: LiveConfig): void {
     return async () => { controller.abort(); await runtime.dispose(); await starting }
   }, 'feishu-im.lifecycle()')
   ctx.inject(['settings', 'connection'], child => {
-    const manager = new SetupManager(child, runtime, account)
-    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+    account = bindSettings(child, ctx, config, value => runtime.configure(value))
+    const manager = new SetupManager(child, runtime, () => account())
     child.effect(() => {
       runtime.onMessage = (message, account) => manager.receive(message, account)
       const routes = ['status', 'save', 'disconnect', 'pairStart', 'qrStart', 'qrCancel'].map(endpoint => child.connection.fetch.register({

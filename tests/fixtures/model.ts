@@ -19,11 +19,16 @@ export class TestModel extends LlmAdapter {
       yield { type: 'finish', reason: { kind: 'aborted', failure: { code: 'ABORTED', message: 'Stopped' } } }
       return
     }
-    if (text === 'write validation file' && options.messages.at(-1)?.role !== 'tool') {
-      const args = JSON.stringify({ file_path: 'lark-validation.txt', content: 'LARK_TOOL_OK\n' })
+    // Older Harness represents tool results as user messages with a tool source.
+    if (['write validation file', 'confirm test choice'].includes(text) && options.messages.at(-1)?.source?.kind !== 'tool') {
+      const asking = text === 'confirm test choice'
+      const name = asking ? 'ask_user_question' : 'write'
+      const args = JSON.stringify(asking
+        ? { questions: [{ id: 'choice', question: 'Choose the test option', options: [{ label: 'Proceed' }, { label: 'Cancel' }] }] }
+        : { file_path: 'lark-validation.txt', content: 'LARK_TOOL_OK\n' })
       yield { type: 'block-start', index: 0, blockType: 'tool-call' }
-      yield { type: 'tool-call-delta', index: 0, id: ToolCallId('lark-write'), name: 'write', argumentsDelta: args }
-      yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: ToolCallId('lark-write'), name: 'write', arguments: args } }
+      yield { type: 'tool-call-delta', index: 0, id: ToolCallId('lark-tool'), name, argumentsDelta: args }
+      yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: ToolCallId('lark-tool'), name, arguments: args } }
       yield { type: 'finish', reason: { kind: 'tool-calls' } }
       return
     }

@@ -2,7 +2,7 @@
 
 [English](configuration.md) · [快速开始](../README.zh-CN.md)
 
-插件添加 `feishu-im` 行，`config.account` 是一个整体原子更新的实时配置。页面先验证机器人凭据，再通过 dsh 保存，profile 配置文件权限为 `0600`。配置目录应放在机器人工作目录之外，不要提交到 Git。空凭据表示尚未配置，不会阻止 dsh 启动。
+插件添加 `feishu-im` 行，`config.account` 是一个整体原子更新的实时配置。页面先验证机器人凭据，再通过 dsh 保存。0.1.7 使用 profile 配置（权限 `0600`）；旧版使用 dsh SettingsProvider 管理的 settings 文档（默认 `$DSH_HOME/settings.yaml`）中的 `feishu-im.account`，优先于 profile 默认配置。旧版同一 DSH_HOME 下的 profile 共享此命名空间；不同机器人应使用不同 DSH_HOME。配置目录应放在机器人工作目录之外，不要提交到 Git。空凭据表示尚未配置，不会阻止 dsh 启动。
 
 ```yaml
 - id: feishu-im
@@ -52,3 +52,5 @@ dsh plugin --profile web exec feishu-im reset
 ```
 
 `setup` 还支持 `--locale`、`--lark`、`--legacy-namespace`。CLI 修改后重启 dsh；扫码和实时修改请使用配置页。`doctor` 检查配置、目录及机器人身份，不发消息，也不开启事件连接。`reset` 仅删除插件配置覆盖行，保留 Session 历史。
+
+旧版 dsh 的 `setup`、`doctor`、`reset` 仅管理或检查 profile 覆盖行，不修改 settings 文档中的页面配置。页面已保存配置时，请继续在页面修改，并用“断开并清除凭据”移除密钥。升级 dsh 前记录非密钥设置，在新版页面重新配置；本插件不自动复制不同版本的凭据或转换宿主的 Session 格式。
