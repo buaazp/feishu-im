@@ -1,6 +1,6 @@
 # Release procedure
 
-The public source repository is [buaazp/feishu-im](https://github.com/buaazp/feishu-im). Version 0.2.0 currently produces a local installable tarball; npm publication is not automatic.
+The public source repository is [buaazp/feishu-im](https://github.com/buaazp/feishu-im). Version 0.2.1 currently produces a local installable tarball; npm publication is not automatic.
 
 1. Verify the repository metadata and confirm the npm name is available and controlled by the maintainer. Enable GitHub private vulnerability reporting, then update `SECURITY.md` and README installation links.
 2. Review the supported dsh version, Node matrix, Feishu SDK and API changes, dependency advisories, and migration limits. Update dependencies together when changing the Harness version. Avoid a forced dependency upgrade that silently crosses its pre-stable APIs.
@@ -12,4 +12,4 @@ The public source repository is [buaazp/feishu-im](https://github.com/buaazp/fei
 
 The CI workflow only validates and uploads build artifacts. It has no npm token and never publishes packages.
 
-中文：源码仓库已公开，0.2.0 当前生成本地安装包。首次 npm 发布前需确认包所有权、核对安全报告渠道和元数据并完成验证。CI 不自动发布；推送和 npm 发布需明确授权。版本升级时一起验证 dsh 依赖与 Session 兼容性。
+中文：源码仓库已公开，0.2.1 当前生成本地安装包。首次 npm 发布前需确认包所有权、核对安全报告渠道和元数据并完成验证。CI 不自动发布；推送和 npm 发布需明确授权。版本升级时一起验证 dsh 依赖与 Session 兼容性。

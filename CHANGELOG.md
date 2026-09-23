@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Use an absolute tarball path in the copyable installation command to avoid pnpm treating it as a GitHub repository.
+- Keep management commands independent of Harness runtime resolution. Preserve the profile's default peer and linker settings in packed-installation tests.
+- 修复本地安装包路径歧义，以及默认 pnpm 配置下管理命令错误加载 Harness 模块的问题。
+
 ## 0.2.0
 
 - Replace lark-cli with direct Feishu OpenAPI and the official SDK long connection.

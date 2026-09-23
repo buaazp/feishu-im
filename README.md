@@ -19,10 +19,12 @@ Build an installable package from this repository:
 ```sh
 npm ci
 npm run build
-npm pack
-# Replace this with the actual absolute tarball path.
-dsh plugin --profile web add /absolute/path/dsh-feishu-im-0.2.0.tgz
+mkdir -p artifacts
+npm pack --pack-destination artifacts
+dsh plugin --profile web add "$PWD/artifacts/dsh-feishu-im-0.2.1.tgz"
 ```
+
+Use the absolute path: dsh runs pnpm inside the profile directory. A bare `artifacts/package.tgz` can be interpreted as a GitHub repository and fail with `ERR_PNPM_GIT_RESOLVE_FAILED`. Changing GitHub authentication does not fix that path.
 
 pnpm 11+ may require a decision about the `protobufjs` install script. The dsh Plugins page offers **Allow these scripts and retry**. That script only checks dependent version ranges. Alternatively, explicitly set `allowBuilds.protobufjs: false` in this profile's `pnpm-workspace.yaml` and retry; the plugin is tested with that script denied. Preserve other workspace settings.
 

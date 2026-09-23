@@ -19,10 +19,12 @@
 ```sh
 npm ci
 npm run build
-npm pack
-# 在你的 dsh Web profile 中安装生成的包；替换为实际绝对路径。
-dsh plugin --profile web add /absolute/path/dsh-feishu-im-0.2.0.tgz
+mkdir -p artifacts
+npm pack --pack-destination artifacts
+dsh plugin --profile web add "$PWD/artifacts/dsh-feishu-im-0.2.1.tgz"
 ```
+
+这里必须使用绝对路径：dsh 在 profile 目录里运行 pnpm。直接写 `artifacts/package.tgz` 可能被当成 GitHub 仓库名，引发 `ERR_PNPM_GIT_RESOLVE_FAILED`；修改 GitHub 认证配置不能修复这个路径。
 
 pnpm 11+ 可能提示 `protobufjs` 安装脚本待决定。dsh 插件页可选择“允许这些脚本并重试”。这个依赖的脚本只检查版本范围；也可以在对应 profile 的 `pnpm-workspace.yaml` 中明确设置 `allowBuilds.protobufjs: false` 后重试，插件已验证不依赖该脚本。不要覆盖文件里的其他配置。
 

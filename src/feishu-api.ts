@@ -1,6 +1,5 @@
 /** Direct bot OpenAPI. Credentials never enter messages, diagnostics or child processes. */
 import { createHash } from 'node:crypto'
-import { replyChunks } from './protocol.ts'
 
 export interface FeishuApiOptions {
   appId: string
@@ -139,4 +138,30 @@ export class FeishuApi implements MessageTransport {
     await Promise.allSettled([...this.requests, ...(this.tokenRequest ? [this.tokenRequest] : [])])
     this.token = undefined
   }
+}
+
+/**
+ * Split text by code point while bounding the complete JSON content sent to Feishu.
+ * @param text - literal reply content.
+ * @param maxBytes - maximum UTF-8 bytes of each serialized `{text}` value.
+ * @returns ordered nonempty reply chunks.
+ */
+export function replyChunks(text: string, maxBytes: number): string[] {
+  const overhead = Buffer.byteLength(JSON.stringify({ text: '' }))
+  const result: string[] = []
+  let current = ''
+  let bytes = overhead
+  for (const character of text) {
+    const size = Buffer.byteLength(JSON.stringify(character)) - 2
+    if (overhead + size > maxBytes) throw new Error('feishu-im: maxReplyBytes cannot hold a code point')
+    if (bytes + size > maxBytes) {
+      result.push(current)
+      current = ''
+      bytes = overhead
+    }
+    current += character
+    bytes += size
+  }
+  if (current !== '') result.push(current)
+  return result
 }

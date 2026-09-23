@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Config, validateConfig } from '../src/config.ts'
-import { conversationId, parseMessage, replyChunks } from '../src/protocol.ts'
+import { replyChunks } from '../src/feishu-api.ts'
+import { conversationId, parseMessage } from '../src/protocol.ts'
 
 const event = {
   type: 'im.message.receive_v1', message_id: 'om_1', chat_id: 'oc_1', sender_id: 'ou_1',

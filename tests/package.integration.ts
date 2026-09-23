@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import ts from 'typescript'
-import { stringify } from 'yaml'
+import { parseDocument, stringify } from 'yaml'
 import { expect, it, vi } from 'vitest'
 import { feishuFixture, nativeMessage } from './feishu-fixture.ts'
 
@@ -33,7 +33,11 @@ it('installs into dsh Web, configures through authenticated RPC and drives persi
   const profile = join(env.DSH_HOME, 'profiles', 'web')
   await cli('plugin', '--profile', 'web', 'list')
   // This optional protobufjs script only checks dependent version ranges. Verify the SDK works with it explicitly denied.
-  await writeFile(join(profile, 'pnpm-workspace.yaml'), 'allowBuilds:\n  protobufjs: false\n')
+  const policyPath = join(profile, 'pnpm-workspace.yaml')
+  const policy = parseDocument(await readFile(policyPath, 'utf8'))
+  expect(policy.get('autoInstallPeers')).toBe(false)
+  policy.setIn(['allowBuilds', 'protobufjs'], false)
+  await writeFile(policyPath, String(policy))
   await cli('plugin', '--profile', 'web', 'add', join(root, filename!))
   const help = await cli('plugin', '--profile', 'web', 'exec', 'feishu-im', 'setup', '--help')
   expect(help.stdout).toContain('--app-id'); expect(help.stdout).not.toContain('--lark-command')

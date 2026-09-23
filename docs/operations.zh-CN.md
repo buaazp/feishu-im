@@ -7,6 +7,7 @@
 | 现象 | 检查方式 |
 | --- | --- |
 | 找不到配置页 | 确认安装了构建后的 tarball、启用了插件，并重启了实际使用的 profile。 |
+| 本地包提示 `ERR_PNPM_GIT_RESOLVE_FAILED` | 改用安装包绝对路径。dsh 在 profile 目录中调用 pnpm，裸写 `artifacts/file.tgz` 可能被误认成 GitHub 仓库。 |
 | pnpm 阻止安装 | 在插件页决定 `protobufjs` 脚本后重试，或在 profile 的 `pnpm-workspace.yaml` 明确禁用这个可选版本检查脚本。 |
 | 扫码失败 | 可能受组织权限、审批或平台开放范围限制；重试或使用已有企业自建应用。 |
 | 凭据验证失败 | 核对 App ID、App Secret、飞书/Lark 区域及机器人能力。 |

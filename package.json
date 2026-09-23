@@ -1,6 +1,6 @@
 {
   "name": "dsh-feishu-im",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Run dsh tasks from Feishu private chats with direct SDK connectivity, live progress and interactive decisions.",
   "type": "module",
   "license": "MIT",

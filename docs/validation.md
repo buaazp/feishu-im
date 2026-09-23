@@ -23,3 +23,9 @@ Live QR registration, tenant administration policies and actual Feishu chat rend
 The existing user's profiles were not modified. This verification did not send real Feishu messages, create a real Feishu application, publish npm, or push the feature branch.
 
 中文：本地已通过 107 项测试、100% 源码覆盖率、真实 dsh Web 安装/配对/工具执行/重启去重集成测试及无警告打包检查；浏览器确认配置页可加载。没有修改现有用户 profile，也没有进行真实飞书扫码、发消息或 npm 发布。
+
+## Installation regression — 0.2.1
+
+The packed-install test now preserves the profile's generated `nodeLinker: hoisted` and `autoInstallPeers: false`, changing only the optional `protobufjs` build decision. This exposed and fixed a management-CLI import of the Harness brand helper through reply encoding. CLI help and the complete Web configuration/pairing/preset/restart flow pass with the actual default policy. Local tarball installation uses an absolute path; a bare `artifacts/file.tgz` reproduces pnpm's Git resolution error.
+
+中文：安装回归测试保留真实 profile 的默认依赖策略，只禁用可选脚本；已修复由此暴露的管理命令模块解析问题，并验证绝对路径安装及完整 Web 流程。

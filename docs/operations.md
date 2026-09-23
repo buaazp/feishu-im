@@ -7,6 +7,7 @@ Install into a dsh Web profile, restart it from the task workspace, then configu
 | Symptom | Check |
 | --- | --- |
 | Plugin page absent | Install the built tarball into the profile you actually launch, enable the bundle and restart dsh. |
+| `ERR_PNPM_GIT_RESOLVE_FAILED` for a tarball | Use the tarball’s absolute path. dsh runs pnpm from the profile directory; a bare `artifacts/file.tgz` is ambiguous. |
 | pnpm blocks installation | Decide the `protobufjs` script in the Plugins page and retry, or explicitly deny its optional version-check script in profile `pnpm-workspace.yaml`. |
 | QR creation fails | Organization permissions or platform rollout may block registration. Retry or configure an existing enterprise app. |
 | Credentials fail | Check App ID, App Secret, Feishu/Lark region and enabled bot capability. |

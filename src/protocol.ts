@@ -1,4 +1,4 @@
-/** Private message validation and bounded reply encoding. */
+/** Private message validation and durable conversation identity. */
 
 import { createHash } from 'node:crypto'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
@@ -60,30 +60,4 @@ export function parseMessage(line: string): IncomingMessage | undefined {
 export function conversationId(profile: string, cwd: string, message: IncomingMessage): SessionId {
   return brandString<SessionId>(`lark-${createHash('sha256')
     .update(JSON.stringify([profile, cwd, message.chatId, message.senderId])).digest('hex')}`)
-}
-
-/**
- * Split text by code point while bounding the complete JSON content sent to Feishu.
- * @param text - literal reply content.
- * @param maxBytes - maximum UTF-8 bytes of each serialized `{text}` value.
- * @returns ordered nonempty reply chunks.
- */
-export function replyChunks(text: string, maxBytes: number): string[] {
-  const overhead = Buffer.byteLength(JSON.stringify({ text: '' }))
-  const result: string[] = []
-  let current = ''
-  let bytes = overhead
-  for (const character of text) {
-    const size = Buffer.byteLength(JSON.stringify(character)) - 2
-    if (overhead + size > maxBytes) throw new Error('feishu-im: maxReplyBytes cannot hold a code point')
-    if (bytes + size > maxBytes) {
-      result.push(current)
-      current = ''
-      bytes = overhead
-    }
-    current += character
-    bytes += size
-  }
-  if (current !== '') result.push(current)
-  return result
 }
