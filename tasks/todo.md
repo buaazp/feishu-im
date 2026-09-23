@@ -8,4 +8,4 @@
 - [x] Add bilingual user guides, architecture, operations, contribution and release documentation.
 - [x] Add CI, license, release artifact checks, and repository templates.
 - [x] Run final checks, record verification, and commit the completed project.
-- [ ] Finish the additional live private-chat follow-up and stop the test listener; waiting for the human message.
+- [x] Finish the additional live private-chat follow-up, verify resumed history and exact file contents, and stop the owned test listener and idle bus.

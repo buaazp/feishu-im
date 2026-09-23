@@ -18,13 +18,24 @@ The 63-test unit suite passed on Node 24.21.0 and Node 26.7.0. The final packed-
 
 The automated IM endpoint and model are deterministic fixtures. They verify plugin composition, literal CLI argv, real task admission, tool execution, persistent history and replies. They do not establish that a particular Feishu tenant has granted scopes or configured events correctly.
 
-## Live verification status
+## Live verification results
 
-The independently installed tarball passed setup, bot-identity verification, and event-subscription readiness with an existing authorized lark-cli app on 2026-09-23. A real human private message reached the driver and received both acknowledgement and a failure reply. Its persisted turn records a model transport error: the selected local model proxy was offline. The test profile now uses the previously working DeepSeek provider, whose real request returned `MODEL_CONNECTION_OK` through a dsh headless profile.
+The independently installed tarball completed a real Feishu private-chat task on 2026-09-23. Setup reused an existing authorized lark-cli application; bot verification and event-subscription readiness passed. After a dsh restart, the human sent only “继续刚才的验证任务” (“continue the previous validation task”). The driver resumed the same persisted Session and used its original file-creation instruction.
 
-The final private-chat file-write round trip is pending a new human follow-up. It is not reported as passed. The listener remains available for that explicit test; it must be stopped normally after the follow-up and file/reply verification. Raw app ids, human ids, and chat transcripts are not included here.
+| Observation | Verified result |
+| --- | --- |
+| History | The same Session contains both human messages across the restart |
+| Task execution | The real dsh `bash` tool created and read the requested file; its persisted result has `isError: false` |
+| File | `standalone-feishu-check.txt` |
+| Exact contents | `STANDALONE_FEISHU_OK`, 20 UTF-8 bytes, no trailing newline |
+| File SHA-256 | `81b48500bbede2474ce62f61214b6a8317284f11427478ff5aa6c607f1a876eb` |
+| Final outcome | The second turn is persisted as `completed` |
+| Feishu delivery | The bot acknowledged the follow-up and replied with the filename, content, and byte count |
+| Cleanup | The owned dsh process exited normally after Ctrl+C; its idle lark-cli event bus stopped without `--force` |
 
-中文：独立安装包已完成真实机器人认证、事件订阅、私聊接收和回复验证。首次写文件任务因所选本地模型代理离线而失败；已切回可用模型，并通过实际模型请求。最终私聊写文件往返仍等待新的人工追问，不计为通过；验证后需正常停止监听。
+The first turn failed because the initially selected local model proxy was offline. Switching the test profile to the working DeepSeek provider restored model access. The completed turn was triggered by a new human message after restart; the failed admitted message was not automatically replayed. No synthetic inbound event or mocked model was used for this live check. Raw app ids, human ids, and private transcripts are not committed.
+
+中文：独立安装包已通过真实飞书私聊往返验证。重启后仅发送“继续刚才的验证任务”，插件恢复同一个 Session，并根据原始指令通过真实 dsh `bash` 工具创建文件。已核对文件内容为 `STANDALONE_FEISHU_OK`、20 字节且无换行，第二轮持久化状态为 `completed`，机器人最终回复已送达。首次任务因本地模型代理离线失败；切换模型后由新的人工追问继续，没有自动重跑旧消息，也没有模拟入站事件或模型。测试进程和空闲事件总线均已正常关闭。
 
 ## Manual live-check procedure
 
