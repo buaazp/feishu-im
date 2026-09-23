@@ -1,0 +1,22 @@
+name: Bug report / 问题反馈
+description: Report a reproducible problem; redact private data.
+body:
+  - type: textarea
+    id: versions
+    attributes:
+      label: Versions and OS / 版本与系统
+      description: Plugin, dsh, Node, pnpm, lark-cli, and OS versions.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction / 复现步骤
+      description: What you ran, what happened, and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics / 脱敏诊断
+      description: Include doctor results and relevant startup errors. Never include tokens, app secrets, private messages, or raw auth dumps.

@@ -5,6 +5,7 @@
 | dsh and Harness packages | `0.1.7-alpha.2` |
 | Cordis | `4.0.4` |
 | Node.js | `^22.19.0` or `>=24.0.0` |
+| pnpm | `10+`; local installation verified with `12.5.1` |
 | lark-cli | `1.0.78` or a compatible newer release |
 | Chat | Feishu bot private text messages |
 

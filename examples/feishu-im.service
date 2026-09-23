@@ -1,0 +1,23 @@
+# Linux systemd user service. Edit all /absolute paths before installation.
+# Start with: systemctl --user start feishu-im
+[Unit]
+Description=Feishu IM tasks through dsh
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/absolute/task/directory
+ExecStart=/absolute/path/to/dsh --profile feishu
+Environment=PATH=/absolute/node/bin:/usr/local/bin:/usr/bin:/bin
+# Optional protected file with model environment variables:
+# EnvironmentFile=%h/.config/feishu-im/model.env
+Restart=on-failure
+RestartSec=10
+KillSignal=SIGTERM
+# dsh closes and drains its own consumer before the remaining cgroup is stopped.
+KillMode=mixed
+TimeoutStopSec=60
+UMask=0077
+
+[Install]
+WantedBy=default.target
