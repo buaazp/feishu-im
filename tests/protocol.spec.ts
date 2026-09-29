@@ -33,7 +33,7 @@ describe('private message admission', () => {
     const text = '中🙂\\"\n'.repeat(100)
     const chunks = replyChunks(text, 64)
     expect(chunks.join('')).toBe(text)
-    for (const chunk of chunks) expect(Buffer.byteLength(JSON.stringify({ text: chunk }))).toBeLessThanOrEqual(64)
+    for (const chunk of chunks) expect(Buffer.byteLength(JSON.stringify({ zh_cn: { content: [[{ tag: 'md', text: chunk }]] } }))).toBeLessThanOrEqual(64)
     expect(replyChunks('', 64)).toEqual([])
     expect(() => replyChunks('中', 12)).toThrow('code point')
   })

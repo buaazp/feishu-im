@@ -121,7 +121,7 @@ export class FeishuApi implements MessageTransport {
   async reply(messageId: string, phase: string, text: string, signal: AbortSignal): Promise<void> {
     signal.throwIfAborted(); this.lifetime.signal.throwIfAborted()
     for (const [index, chunk] of replyChunks(text, this.options.maxReplyBytes).entries()) {
-      await this.send(messageId, `${phase}:${index}`, 'text', { text: chunk }, signal)
+      await this.send(messageId, `${phase}:${index}`, 'post', markdownPost(chunk), signal)
     }
   }
 
@@ -140,28 +140,53 @@ export class FeishuApi implements MessageTransport {
   }
 }
 
-/**
- * Split text by code point while bounding the complete JSON content sent to Feishu.
- * @param text - literal reply content.
- * @param maxBytes - maximum UTF-8 bytes of each serialized `{text}` value.
- * @returns ordered nonempty reply chunks.
- */
+/** Feishu recommends one standalone md element for CommonMark/GFM replies. */
+function markdownPost(text: string) {
+  return { zh_cn: { content: [[{ tag: 'md', text }]] } }
+}
+
+interface CodeFence { opening: string; marker: string }
+
+/** Bound serialized post content; retain complete lines and close/reopen split code fences. */
 export function replyChunks(text: string, maxBytes: number): string[] {
-  const overhead = Buffer.byteLength(JSON.stringify({ text: '' }))
+  const overhead = Buffer.byteLength(JSON.stringify(markdownPost('')))
+  const size = (value: string) => Buffer.byteLength(JSON.stringify(value)) - 2
   const result: string[] = []
   let current = ''
-  let bytes = overhead
-  for (const character of text) {
-    const size = Buffer.byteLength(JSON.stringify(character)) - 2
-    if (overhead + size > maxBytes) throw new Error('feishu-im: maxReplyBytes cannot hold a code point')
-    if (bytes + size > maxBytes) {
-      result.push(current)
-      current = ''
-      bytes = overhead
-    }
-    current += character
-    bytes += size
+  let bytes = 0
+  let hasSource = false
+  let fence: CodeFence | undefined
+  const closing = (value: string, active: CodeFence | undefined) => active ? `${value.endsWith('\n') ? '' : '\n'}${active.marker}` : ''
+  const fits = (value: string, active: CodeFence | undefined) => overhead + bytes + size(value) + size(closing(value, active)) <= maxBytes
+  const append = (value: string) => { current += value; bytes += size(value); hasSource = true }
+  const flush = () => {
+    if (!hasSource) return
+    result.push(current + closing(current, fence))
+    current = fence?.opening ?? ''
+    bytes = size(current)
+    hasSource = false
   }
-  if (current !== '') result.push(current)
+  for (const line of text.match(/[^\n]*\n|[^\n]+$/g) ?? []) {
+    const source = line.replace(/\r?\n$/, '')
+    const marker = source.match(/^ {0,3}(`{3,}|~{3,})(.*)$/)
+    let nextFence = fence
+    if (marker) {
+      if (fence) {
+        if (marker[1]![0] === fence.marker[0] && marker[1]!.length >= fence.marker.length && marker[2]!.trim() === '') nextFence = undefined
+      } else if (marker[1]![0] === '~' || !marker[2]!.includes('`')) {
+        nextFence = { opening: `${source}\n`, marker: marker[1]! }
+      }
+    }
+    if (!fits(line, nextFence) && current !== fence?.opening) flush()
+    if (fits(line, nextFence)) { append(line); fence = nextFence; continue }
+    // A fence is syntax, so never split its marker or language across replies.
+    if (nextFence !== fence) throw new Error('feishu-im: maxReplyBytes cannot hold a Markdown fence')
+    for (const character of line) {
+      if (!fits(character, fence)) flush()
+      if (!fits(character, fence)) throw new Error('feishu-im: maxReplyBytes cannot hold a code point')
+      append(character)
+    }
+  }
+  flush()
   return result
 }

@@ -1,12 +1,12 @@
 import { createServer } from 'node:http'
 import { once } from 'node:events'
 import { afterEach, expect, it } from 'vitest'
-import { FeishuApi } from '../src/feishu-api.ts'
+import { FeishuApi, replyChunks } from '../src/feishu-api.ts'
 
 const cleanup: Array<() => Promise<void>> = []
 afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close() })
 
-async function fixture() {
+async function fixture(maxReplyBytes = 64) {
   const calls: Array<{ path: string; body: Record<string, unknown>; authorization?: string }> = []
   let handler = (path: string): object => path.includes('tenant_access_token')
     ? { code: 0, tenant_access_token: 'test-token', expire: 7200 }
@@ -20,23 +20,104 @@ async function fixture() {
   await once(server, 'listening')
   cleanup.push(async () => { server.closeAllConnections(); server.close(); await once(server, 'close') })
   const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`
-  const api = new FeishuApi({ appId: 'cli_test', appSecret: 'fake-secret', apiOrigin: origin, requestTimeoutMs: 500, maxReplyBytes: 64 })
+  const api = new FeishuApi({ appId: 'cli_test', appSecret: 'fake-secret', apiOrigin: origin, requestTimeoutMs: 500, maxReplyBytes })
   cleanup.push(() => api.close())
   return { api, calls, setHandler(value: typeof handler) { handler = value } }
 }
 
-it('authenticates directly and sends bounded text with stable retry UUIDs', async () => {
+function replyMarkdown(body: Record<string, unknown>): string {
+  expect(body.msg_type).toBe('post')
+  const post = JSON.parse(String(body.content)) as { zh_cn: { content: Array<Array<{ tag: string; text: string }>> } }
+  for (const paragraph of post.zh_cn.content) {
+    expect(paragraph).toHaveLength(1)
+    expect(paragraph[0]!.tag).toBe('md')
+  }
+  return post.zh_cn.content.map(paragraph => paragraph[0]!.text).join('\n')
+}
+
+it('authenticates directly and sends bounded Markdown posts with stable retry UUIDs', async () => {
   const { api, calls } = await fixture()
   const text = '中文🙂'.repeat(20)
   await api.reply('om_input', 'result', text, new AbortController().signal)
   const replies = calls.filter(call => call.path.endsWith('/reply'))
   expect(calls.filter(call => call.path.includes('tenant_access_token'))).toHaveLength(1)
-  expect(replies.map(call => JSON.parse(String(call.body.content)).text).join('')).toBe(text)
+  expect(replies.map(call => replyMarkdown(call.body)).join('')).toBe(text)
   expect(replies.every(call => Buffer.byteLength(String(call.body.content)) <= 64)).toBe(true)
   expect(replies.every(call => call.authorization === 'Bearer test-token')).toBe(true)
   await api.reply('om_input', 'result', text, new AbortController().signal)
   expect(calls.filter(call => call.path.endsWith('/reply')).slice(replies.length).map(call => call.body.uuid))
     .toEqual(replies.map(call => call.body.uuid))
+})
+
+it('sends headings, links, tables and fenced code through Feishu post Markdown content', async () => {
+  const { api, calls } = await fixture(4096)
+  const markdown = [
+    '## 执行结果', '', '**完成**，请查看 [文档](https://example.test/docs)。', '',
+    '| 文件 | 状态 |', '| --- | --- |', '| app.ts | 已修复 |', '',
+    '```typescript', 'console.log("中文🙂")', '```', '', '- [x] 检查通过',
+  ].join('\n')
+  await api.reply('om_input', 'result', markdown, new AbortController().signal)
+  const replies = calls.filter(call => call.path.endsWith('/reply'))
+  expect(replies).toHaveLength(1)
+  expect(replyMarkdown(replies[0]!.body)).toBe(markdown)
+})
+
+it('keeps each split code block renderable and preserves every source line and reply UUID', async () => {
+  const { api, calls } = await fixture(240)
+  const code = Array.from({ length: 15 }, (_, index) => `const item${index} = "中文🙂-${index}";`)
+  const markdown = ['## 代码', '', '```typescript', ...code, '```', '', '**完成**'].join('\n')
+  const signal = new AbortController().signal
+  await api.reply('om_input', 'result', markdown, signal)
+  const replies = calls.filter(call => call.path.endsWith('/reply'))
+  expect(replies.length).toBeGreaterThan(1)
+  expect(new Set(replies.map(call => call.body.uuid)).size).toBe(replies.length)
+  const receivedCode: string[] = []
+  for (const { body } of replies) {
+    expect(Buffer.byteLength(String(body.content))).toBeLessThanOrEqual(240)
+    let inCode = false
+    for (const line of replyMarkdown(body).split('\n')) {
+      if (line === '```typescript') { expect(inCode).toBe(false); inCode = true }
+      else if (line === '```') { expect(inCode).toBe(true); inCode = false }
+      else if (line.startsWith('const item')) { expect(inCode).toBe(true); receivedCode.push(line) }
+    }
+    expect(inCode).toBe(false)
+  }
+  expect(receivedCode).toEqual(code)
+  await api.reply('om_input', 'result', markdown, signal)
+  expect(calls.filter(call => call.path.endsWith('/reply')).slice(replies.length).map(call => call.body))
+    .toEqual(replies.map(call => call.body))
+})
+
+it('bounds an oversized single code line including post JSON escapes without losing Unicode', async () => {
+  const { api, calls } = await fixture(240)
+  const code = '中文🙂\\"'.repeat(80)
+  await api.reply('om_input', 'result', `\`\`\`text\n${code}\n\`\`\``, new AbortController().signal)
+  const replies = calls.filter(call => call.path.endsWith('/reply'))
+  expect(replies.length).toBeGreaterThan(1)
+  const fragments = replies.map(({ body }) => {
+    expect(Buffer.byteLength(String(body.content))).toBeLessThanOrEqual(240)
+    const markdown = replyMarkdown(body)
+    expect(markdown).toMatch(/^```text\n[\s\S]*\n```$/)
+    return markdown.slice('```text\n'.length, -'\n```'.length)
+  })
+  expect(fragments.join('')).toBe(code)
+})
+
+it.each([
+  ['~~~typescript\nconst value = `literal`;\n~~~', '~~~typescript\nconst value = `literal`;\n~~~'],
+  ['````typescript\n```\n~~~\n```` extra\n````', '````typescript\n```\n~~~\n```` extra\n````'],
+  ['```type`script\nplain text', '```type`script\nplain text'],
+  ['~~~type`script\ncode', '~~~type`script\ncode\n~~~'],
+  ['```typescript\r\ncode\r\n```', '```typescript\r\ncode\r\n```'],
+])('respects Markdown fence markers and closes unfinished code: %s', (markdown, expected) => {
+  expect(replyChunks(markdown, 4096)).toEqual([expected])
+})
+
+it('rejects an unrepresentable code fence before sending any partial answer', async () => {
+  const { api, calls } = await fixture(64)
+  const markdown = 'First paragraph.\n'.repeat(20) + '```typescript\nconst result = 1;\n```'
+  await expect(api.reply('om_input', 'result', markdown, new AbortController().signal)).rejects.toThrow('Markdown fence')
+  expect(calls).toHaveLength(0)
 })
 
 it('refreshes a rejected token once and preserves the message idempotency key', async () => {
@@ -87,6 +168,8 @@ it('rejects malformed and oversized HTTP responses and missing bot/message ackno
   await expect(api.probe(signal)).rejects.toThrow('enable the application bot')
   setHandler(path => path.includes('tenant_access_token') ? { code: 0, tenant_access_token: 'token', expire: 7200 } : { code: 0, bot: { open_id: 'ou_bot' } })
   expect(await api.probe(signal)).toEqual({ openId: 'ou_bot', name: 'cli_test' })
+  setHandler(() => ({ code: 0, bot: { open_id: 'ou_bot', app_name: 'Test bot' } }))
+  expect(await api.probe(signal)).toEqual({ openId: 'ou_bot', name: 'Test bot' })
   setHandler(() => ({ code: 0, data: {} })); await expect(api.card('om_source', 'phase', {}, signal)).rejects.toThrow('missing reply acknowledgement')
   setHandler(() => ({ code: 'secret' })); await expect(api.request('/test', {}, signal)).rejects.toThrow('invalid response')
 })
