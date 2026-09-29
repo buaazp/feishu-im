@@ -1,10 +1,10 @@
 /** Direct-API configuration and diagnostics; never starts an Agent. */
 import { resolve } from 'node:path'
 import { Command } from 'commander'
-import { Config, validateConfig } from './config.ts'
+import { Config, defaultWorkspace, validateConfig } from './config.ts'
 import { FeishuApi } from './feishu-api.ts'
 import { assertProfile, readConfiguration, resetConfiguration, writeConfiguration } from './profile.ts'
-import { checkWorkspace } from './setup-manager.ts'
+import { checkWorkspace, prepareWorkspace } from './setup-manager.ts'
 
 export interface ManagementEnvironment {
   directory: string
@@ -44,17 +44,18 @@ export function createManagementProgram(environment: ManagementEnvironment): Com
   program.command('setup').description('Save profile defaults with an App Secret from stdin; restart dsh afterward.')
     .requiredOption('--app-id <id>', 'Feishu application App ID')
     .requiredOption('--secret-stdin', 'Read App Secret from standard input')
-    .requiredOption('--workspace <path>', 'Task workspace outside the profile directory')
+    .option('--workspace <path>', 'Task workspace outside the profile (default: ~/dsh-workspaces/feishu-im)')
     .option('--allow-user <open_id>', 'Allowed human open_id; repeat or separate with commas', (value: string, previous: string[] = []) => [...previous, ...value.split(',').map(id => id.trim()).filter(Boolean)])
     .option('--locale <locale>', 'zh-CN or en', 'zh-CN')
     .option('--lark', 'Use the international Lark API')
     .option('--legacy-namespace <name>', 'Explicit old profile name for continuing pre-0.2 sessions')
-    .action(async (options: { appId: string; workspace: string; allowUser?: string[]; locale: string; lark?: boolean; legacyNamespace?: string }) => {
+    .action(async (options: { appId: string; workspace?: string; allowUser?: string[]; locale: string; lark?: boolean; legacyNamespace?: string }) => {
       await assertProfile(environment.directory)
-      const config = Config({ appId: options.appId, appSecret: (await environment.readSecret()).trim(), cwd: resolve(environment.directory, options.workspace),
-        allowedUsers: [...new Set(options.allowUser ?? [])], locale: options.locale as Config['locale'],
+      const previous = await readConfiguration(environment.directory).catch(() => undefined)
+      const config = Config({ appId: options.appId, appSecret: (await environment.readSecret()).trim(), cwd: options.workspace ? resolve(environment.directory, options.workspace) : defaultWorkspace(),
+        allowedUsers: [...new Set(options.allowUser ?? (previous?.appId === options.appId ? previous.allowedUsers : []))], locale: options.locale as Config['locale'],
         apiOrigin: options.lark ? 'https://open.larksuite.com' : 'https://open.feishu.cn', legacyNamespace: options.legacyNamespace })
-      validateConfig(config); await checkWorkspace(config.cwd, environment.directory)
+      validateConfig(config); await prepareWorkspace(config.cwd, environment.directory)
       await probe(environment, config)
       await writeConfiguration(environment.directory, config)
       environment.write(`Configured profile defaults for ${config.appId}. Restart dsh. Existing Web settings on older dsh override these defaults.\n`)

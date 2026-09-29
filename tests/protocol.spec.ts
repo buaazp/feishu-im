@@ -1,3 +1,5 @@
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { Config, validateConfig } from '../src/config.ts'
 import { replyChunks } from '../src/feishu-api.ts'
@@ -46,4 +48,9 @@ describe('private message admission', () => {
     expect(() => Config({ ...request, maxConversations: 0 })).toThrow()
     expect(() => Config({ ...request, maxReplyBytes: 16_001 })).toThrow()
   })
+})
+
+
+it('has a default task workspace without broadening the default sender authorization', () => {
+  expect(Config({})).toMatchObject({ cwd: join(homedir(), 'dsh-workspaces', 'feishu-im'), allowedUsers: [] })
 })

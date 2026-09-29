@@ -14,7 +14,7 @@ async function harness(zh = true, configured = false, summary = false) {
     qr: null as { state: string; image?: string; expiresAt?: number } | null, pairing: null as { code: string; expiresAt: number } | null }
   const call = vi.fn<ClientConnectionRpc['call']>(async (_channel, method, payload) => {
     const data = payload as Record<string, unknown>
-    if (method === 'feishu-im/save') status = { ...status, revision: status.revision + 1, hasSecret: true, state: 'connected', config: { ...status.config, appId: String(data.appId), cwd: String(data.cwd), allowedUsers: data.allowedUsers as string[], locale: data.locale as 'zh-CN' | 'en' } }
+    if (method === 'feishu-im/save') status = { ...status, revision: status.revision + 1, hasSecret: true, state: 'connected', config: { ...status.config, appId: String(data.appId) } }
     if (method === 'feishu-im/pairStart') status = { ...status, pairing: { code: 'one-time', expiresAt: Date.now() + 600000 } }
     if (method === 'feishu-im/qrStart') status = { ...status, qr: { state: 'waiting', image: 'data:image/png;base64,fake', expiresAt: Date.now() + 60000 } }
     if (method === 'feishu-im/qrCancel') status = { ...status, qr: null }
@@ -36,22 +36,30 @@ it('renders new summary and legacy page slots with the same configuration contro
   const h = await harness(true, false, true)
   expect(JSON.stringify(h.renderer.toJSON())).toContain('扫码连接飞书'); expect(h.call).not.toHaveBeenCalled()
   await act(async () => h.renderer.update(<FeishuPage rpc={h.props.rpc} locale={h.props.locale} />)); expect(h.call).toHaveBeenCalled()
-  await h.click('使用已有应用')
+  await h.click('绑定已有应用')
   expect(h.renderer.root.findByType('form')).toBeDefined()
-  const entries: unknown[] = []
-  apply({ slots: { inject: (_name: string, register: () => void) => register(), register: (options: { inject: () => unknown }) => { entries.push(options); options.inject() } }, connection: { rpc: h.props.rpc }, locale: h.props.locale } as unknown as Context)
-  expect(entries).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'dsh-feishu-im' }), expect.objectContaining({ key: 'dsh-feishu-im#feishu-im' }), expect.objectContaining({ name: 'settings.plugin.item', key: 'feishu-im' })]))
+  const entries: Array<{ name: string; key: string; component: React.ComponentType<typeof h.props> }> = []
+  apply({ slots: { inject: (_name: string, register: () => void) => register(), register: (options: { name: string; key: string; inject: () => unknown }, component: React.ComponentType<typeof h.props>) => { entries.push({ ...options, component }); options.inject() } }, connection: { rpc: h.props.rpc }, locale: h.props.locale } as unknown as Context)
+  expect(entries).toHaveLength(2)
+  expect(entries).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'dsh-feishu-im#feishu-im' }), expect.objectContaining({ name: 'settings.plugin.item', key: 'feishu-im' })]))
+  const Card = entries.find(entry => entry.name === 'settings.plugin.item')!.component
+  await act(async () => h.renderer.update(<Card {...h.props} view="page" />))
+  expect(h.renderer.root.findByType('details').props.open).toBeUndefined()
+  expect(h.renderer.root.findByType('summary').children.join('')).toContain('Feishu IM')
 })
 
-it('keeps secrets blank, submits explicit form values, pairs and disconnects', async () => {
+it('binds with only App ID and App Secret and displays the workspace as read-only chat guidance', async () => {
   const h = await harness(true, true)
-  expect(h.renderer.root.findAllByType('input')[2]!.props.type).toBe('password')
-  expect(h.renderer.root.findAllByType('input')[2]!.props.value).toBe('')
-  await h.change('input', 0, '/project'); await h.change('input', 1, 'cli_1111111111111111'); await h.change('input', 2, 'NEW_SECRET')
-  await h.change('select', 0, 'lark'); await h.change('select', 1, 'en'); await h.change('textarea', 0, 'ou_one, ou_two')
+  expect(h.renderer.root.findAllByType('input')).toHaveLength(2)
+  expect(h.renderer.root.findAllByType('select')).toHaveLength(0)
+  expect(h.renderer.root.findAllByType('textarea')).toHaveLength(0)
+  expect(h.renderer.root.findAllByType('input')[1]!.props).toMatchObject({ type: 'password', value: '' })
+  expect(JSON.stringify(h.renderer.toJSON())).toContain('/work')
+  expect(JSON.stringify(h.renderer.toJSON())).toContain('/dsh cd')
+  await h.change('input', 0, 'cli_1111111111111111'); await h.change('input', 1, 'NEW_SECRET')
   await act(async () => h.renderer.root.findByType('form').props.onSubmit({ preventDefault() {} }))
-  expect(h.call).toHaveBeenCalledWith('/api', 'feishu-im/save', expect.objectContaining({ appSecret: 'NEW_SECRET', cwd: '/project', allowedUsers: ['ou_one', 'ou_two'], region: 'lark', locale: 'en', revision: 1 }), expect.any(AbortSignal))
-  expect(h.renderer.root.findAllByType('input')[2]!.props.value).toBe('')
+  expect(h.call).toHaveBeenCalledWith('/api', 'feishu-im/save', { appId: 'cli_1111111111111111', appSecret: 'NEW_SECRET', revision: 1 }, expect.any(AbortSignal))
+  expect(h.renderer.root.findAllByType('input')[1]!.props.value).toBe('')
   await h.click('生成授权配对码'); expect(h.renderer.root.findAllByType('code').some(code => code.children.join('') === '/dsh pair one-time')).toBe(true)
   await h.click('断开并清除凭据'); expect(JSON.stringify(h.renderer.toJSON())).not.toContain('NEW_SECRET')
   await h.click('刷新配置'); expect(h.call.mock.calls.at(-1)?.[1]).toBe('feishu-im/status')
@@ -59,15 +67,17 @@ it('keeps secrets blank, submits explicit form values, pairs and disconnects', a
 
 it('shows QR status and adopts completed registration without overwriting a dirty form', async () => {
   const h = await harness(false)
-  await h.change('input', 0, '/qr-work'); await h.click('Generate QR code')
+  expect(h.renderer.root.findAllByType('input')).toHaveLength(0)
+  await h.click('Generate QR code')
+  expect(h.call).toHaveBeenLastCalledWith('/api', 'feishu-im/qrStart', { revision: 1 }, expect.any(AbortSignal))
   expect(h.renderer.root.findByType('img').props.alt).toContain('Scan with Feishu')
   await h.click('Cancel scan'); expect(h.renderer.root.findAllByType('img')).toHaveLength(0)
   await h.click('Generate QR code')
   h.setStatus({ revision: 2, hasSecret: true, state: 'connected', qr: { state: 'complete' }, config: { ...h.status.config, appId: 'cli_new', apiOrigin: 'https://open.larksuite.com', allowedUsers: ['ou_scanner'] } })
-  await h.poll(); expect(h.renderer.root.findAllByType('input')[1]!.props.value).toBe('cli_new')
-  await h.change('input', 0, '/unsaved'); h.setStatus({ revision: 3, config: { ...h.status.config, cwd: '/external' } }); await h.poll()
-  expect(h.renderer.root.findAllByType('input')[0]!.props.value).toBe('/unsaved')
-  await h.click('Reload settings'); expect(h.renderer.root.findAllByType('input')[0]!.props.value).toBe('/external')
+  await h.poll(); expect(h.renderer.root.findAllByType('input')[0]!.props.value).toBe('cli_new')
+  await h.change('input', 0, 'cli_unsaved'); h.setStatus({ revision: 3, config: { ...h.status.config, appId: 'cli_external' } }); await h.poll()
+  expect(h.renderer.root.findAllByType('input')[0]!.props.value).toBe('cli_unsaved')
+  await h.click('Reload settings'); expect(h.renderer.root.findAllByType('input')[0]!.props.value).toBe('cli_external')
   await h.click('Create a bot with QR'); expect(JSON.stringify(h.renderer.toJSON())).toContain('Configured')
 })
 
@@ -90,7 +100,7 @@ it('shows actionable errors, readonly and connection state while polling remains
 
 it.each(['resolve', 'reject'] as const)('stops polling when an in-flight status request %s after unmount', async outcome => {
   const h = await harness(false)
-  await h.click('Use an existing app')
+  await h.click('Bind an existing app')
   const pending = Promise.withResolvers<Awaited<ReturnType<ClientConnectionRpc['call']>>>()
   h.call.mockImplementationOnce(() => pending.promise)
   act(() => { vi.advanceTimersByTime(2000) })

@@ -1,5 +1,6 @@
 /** Direct Feishu bot credentials and bounded task settings. */
-import { isAbsolute } from 'node:path'
+import { homedir } from 'node:os'
+import { isAbsolute, join } from 'node:path'
 import z from '@deepseek-ai/schemastery'
 import type { Locale } from './messages.ts'
 
@@ -23,13 +24,14 @@ export interface Config {
   interactionTimeoutMs: number
 }
 const positive = (): z<number> => z.number().min(1).max(2_147_483_647).step(1)
+export function defaultWorkspace(): string { return join(homedir(), 'dsh-workspaces', 'feishu-im') }
 export const Config: z<Partial<Config>, Config> = z.object({
   locale: z.union(['zh-CN', 'en']).default('zh-CN'),
   appId: z.string().default(''),
   appSecret: z.string().role('secret').default(''),
   apiOrigin: z.string().default('https://open.feishu.cn'),
   legacyNamespace: z.string().default(''),
-  cwd: z.string().default(''),
+  cwd: z.string().default(defaultWorkspace()),
   allowedUsers: z.array(z.string()).default([]),
   maxConversations: positive().default(4),
   maxPendingMessages: positive().default(16),

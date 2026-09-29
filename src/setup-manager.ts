@@ -1,13 +1,13 @@
 /** Authenticated configuration and explicit private-chat pairing; never imports local secrets. */
 import { randomBytes } from 'node:crypto'
-import { access, realpath, stat } from 'node:fs/promises'
+import { access, mkdir, realpath, stat } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { dirname, isAbsolute, relative, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-settings'
 import { registerFeishuApp } from './registration.ts'
 import QRCode from 'qrcode'
-import { Config, validateConfig } from './config.ts'
+import { Config, defaultWorkspace, validateConfig } from './config.ts'
 import { FeishuApi, record } from './feishu-api.ts'
 import type { FeishuRuntime } from './runtime.ts'
 import type { IncomingMessage } from './protocol.ts'
@@ -31,6 +31,12 @@ export async function checkWorkspace(cwd: string, profile?: string): Promise<voi
     const path = relative(profile, cwd)
     if (!path || (!isAbsolute(path) && path !== '..' && !path.startsWith(`..${sep}`))) fail('profile_is_not_workspace')
   }
+}
+
+/** Only the managed default is created automatically; explicit directories must already exist. */
+export async function prepareWorkspace(cwd: string, profile?: string): Promise<void> {
+  if (cwd === defaultWorkspace()) await mkdir(cwd, { recursive: true })
+  await checkWorkspace(cwd, profile)
 }
 
 export class SetupManager {
@@ -67,13 +73,17 @@ export class SetupManager {
   private async save(config: Config, revision: number, signal: AbortSignal): Promise<void> {
     validateConfig(config)
     const document = this.ctx.settings.documentPath
-    await checkWorkspace(config.cwd, document ? dirname(document) : undefined)
+    await prepareWorkspace(config.cwd, document ? dirname(document) : undefined)
     const api = new FeishuApi(config)
     try { await api.probe(signal) } catch { fail('bot_authentication_failed') } finally { await api.close() }
     signal.throwIfAborted()
     try { await this.ctx.settings.update('feishu-im', { account: config }, revision) }
     catch { fail('settings_changed') }
-    this.pair = undefined
+    this.pair = config.allowedUsers.length ? undefined : this.pairingCode(config.appId, this.descriptor().revision)
+  }
+
+  private pairingCode(appId: string, revision: number) {
+    return { code: randomBytes(8).toString('hex'), expiresAt: Date.now() + 600_000, appId, revision }
   }
 
   call(endpoint: string, raw: unknown, signal: AbortSignal): Promise<unknown> {
@@ -92,22 +102,22 @@ export class SetupManager {
       await this.cancelQR()
       const current = this.config(), appId = string(payload.appId), supplied = string(payload.appSecret ?? '')
       const secret = supplied || (appId === current.appId ? current.appSecret : '')
-      const users = payload.allowedUsers
+      const users = payload.allowedUsers ?? (appId === current.appId ? current.allowedUsers : [])
       if (!Array.isArray(users) || users.some(id => typeof id !== 'string')) fail('invalid_fields')
-      const config = Config({ ...current, appId, appSecret: secret, cwd: string(payload.cwd),
-        apiOrigin: payload.region === 'lark' ? 'https://open.larksuite.com' : current.apiOrigin === 'https://open.larksuite.com' ? 'https://open.feishu.cn' : current.apiOrigin,
-        allowedUsers: [...new Set(users as string[])], locale: payload.locale === 'en' ? 'en' : 'zh-CN' })
+      const config = Config({ ...current, appId, appSecret: secret, cwd: string(payload.cwd ?? (current.cwd || defaultWorkspace())),
+        apiOrigin: payload.region === 'lark' ? 'https://open.larksuite.com' : payload.region === 'feishu' ? 'https://open.feishu.cn' : current.apiOrigin,
+        allowedUsers: [...new Set(users as string[])], locale: payload.locale === undefined ? current.locale : payload.locale === 'en' ? 'en' : 'zh-CN' })
       await this.save(config, revision, signal)
     } else if (endpoint === 'disconnect') {
       await this.cancelQR(); this.pair = undefined
       await this.ctx.settings.update('feishu-im', { account: { ...this.config(), appId: '', appSecret: '', allowedUsers: [] } }, revision)
     } else if (endpoint === 'pairStart') {
       if (!this.config().appId || this.runtime.state !== 'connected') fail('not_connected')
-      this.pair = { code: randomBytes(8).toString('hex'), expiresAt: Date.now() + 600_000, appId: this.config().appId, revision }
+      this.pair = this.pairingCode(this.config().appId, revision)
     } else if (endpoint === 'qrStart') {
       await this.cancelQR()
-      const cwd = string(payload.cwd)
-      await checkWorkspace(cwd, this.ctx.settings.documentPath ? dirname(this.ctx.settings.documentPath) : undefined)
+      const cwd = string(payload.cwd ?? (this.config().cwd || defaultWorkspace()))
+      await prepareWorkspace(cwd, this.ctx.settings.documentPath ? dirname(this.ctx.settings.documentPath) : undefined)
       const controller = new AbortController()
       const qr = { controller, state: 'starting', done: Promise.resolve(), image: undefined as string | undefined, expiresAt: undefined as number | undefined }
       this.qr = qr

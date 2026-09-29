@@ -1,6 +1,6 @@
 import { Context } from '@deepseek-ai/cordis'
 import { expect, it, vi } from 'vitest'
-import { Config, configurationSchema, LiveConfig } from '../src/config.ts'
+import { Config, defaultWorkspace, configurationSchema, LiveConfig } from '../src/config.ts'
 import { bindSettings, readAccount } from '../src/settings-compat.ts'
 
 it('uses live Config references on newer dsh and returns independent account snapshots', async () => {
@@ -44,4 +44,9 @@ it('accepts the public pre-volatile schema without invoking an unavailable metho
   const schema = Object.assign((input: Partial<Config>) => Config(input), { default: () => account }) as unknown as typeof Config
   const parsed = configurationSchema(schema)({ account: Config({ cwd: '/legacy' }) })
   expect(readAccount(parsed).cwd).toBe('/legacy')
+})
+
+
+it('migrates an empty legacy workspace to the managed default without changing authorization', () => {
+  expect(readAccount({ account: Config({ cwd: '', allowedUsers: ['ou_owner'] }) })).toMatchObject({ cwd: defaultWorkspace(), allowedUsers: ['ou_owner'] })
 })

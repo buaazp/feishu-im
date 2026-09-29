@@ -127,3 +127,24 @@ it('reconfigures the runtime from legacy settings changes and detaches the watch
     await h.ctx.fiber.dispose(); expect(release).toHaveBeenCalledOnce()
   } finally { configure.mockRestore() }
 })
+
+it('checks the profile boundary and cancels a configuration superseded during workspace preparation', async () => {
+  const { mkdir } = await import('node:fs/promises')
+  const { join } = await import('node:path')
+  const workspace = await import('../src/setup-manager.ts')
+  const h = await createDriverHarness(cleanup)
+  const profile = join(h.config.cwd, 'profile'); await mkdir(profile)
+  h.ctx.provide('settings', { documentPath: join(profile, 'settings.yaml') } as unknown as Context['settings'])
+  const runtime = new FeishuRuntime(h.ctx); cleanup.push(() => runtime.dispose())
+  await runtime.configure({ ...h.config, cwd: profile })
+  expect(runtime.error).toBe('invalid_configuration')
+  const gate = Promise.withResolvers<void>()
+  const prepare = vi.spyOn(workspace, 'prepareWorkspace').mockImplementation(() => gate.promise)
+  try {
+    const first = runtime.configure(h.config)
+    await vi.waitFor(() => expect(prepare).toHaveBeenCalled())
+    const replacement = runtime.configure(Config({}))
+    gate.resolve(); await first; await replacement
+    expect(runtime.state).toBe('unconfigured')
+  } finally { prepare.mockRestore() }
+})

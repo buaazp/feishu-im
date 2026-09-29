@@ -1,7 +1,7 @@
 /** Published SettingsProvider (pre-0.1.7) and Config-derived SettingsForms share one account view. */
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { Config, type LiveConfig } from './config.ts'
+import { Config, defaultWorkspace, type LiveConfig } from './config.ts'
 
 interface AccountScope {
   get(): { account: Config }
@@ -14,7 +14,7 @@ interface NamespaceSettings {
 
 export function readAccount(config: LiveConfig): Config {
   const value = 'get' in config.account ? config.account.get() : config.account
-  return { ...value, allowedUsers: [...value.allowedUsers] }
+  return { ...value, cwd: value.cwd || defaultWorkspace(), allowedUsers: [...value.allowedUsers] }
 }
 
 export function bindSettings(ctx: Context, owner: Context, config: LiveConfig,

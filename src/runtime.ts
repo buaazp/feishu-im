@@ -1,10 +1,12 @@
 /** Reconfiguration cancels and joins the previous account before activating its replacement. */
 import { AsyncResource } from 'node:async_hooks'
+import { dirname } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import { Config, validateConfig } from './config.ts'
 import { FeishuApi } from './feishu-api.ts'
 import { FeishuEvents, type ConnectionState } from './feishu-events.ts'
 import { FeishuDriver } from './driver.ts'
+import { prepareWorkspace } from './setup-manager.ts'
 import type { IncomingMessage } from './protocol.ts'
 
 export class FeishuRuntime {
@@ -28,7 +30,12 @@ export class FeishuRuntime {
       if (this.closed || revision !== this.revision) return
       this.error = ''
       if (!config.appId && !config.appSecret) { this.state = 'unconfigured'; return }
-      try { validateConfig(config) } catch { this.state = 'error'; this.error = 'invalid_configuration'; return }
+      try {
+        validateConfig(config)
+        const document = this.ctx.get('settings')?.documentPath
+        await prepareWorkspace(config.cwd, document ? dirname(document) : undefined)
+      } catch { this.state = 'error'; this.error = 'invalid_configuration'; return }
+      if (this.closed || revision !== this.revision) return
       const controller = new AbortController()
       const api = new FeishuApi(config)
       const driver = new FeishuDriver(this.ctx, config, api)

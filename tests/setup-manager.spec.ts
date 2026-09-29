@@ -2,17 +2,22 @@ import { Context } from '@deepseek-ai/cordis'
 import type { SettingsForms } from '@deepseek-ai/dsh-settings'
 import type { registerFeishuApp as registerApp } from '../src/registration.ts'
 import QRCode from 'qrcode'
-import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { mkdtemp, mkdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
-import { Config } from '../src/config.ts'
+import { Config, defaultWorkspace } from '../src/config.ts'
 import { FeishuApi } from '../src/feishu-api.ts'
 import { SetupManager, checkWorkspace } from '../src/setup-manager.ts'
 import { FeishuRuntime } from '../src/runtime.ts'
 import { parseMessage } from '../src/protocol.ts'
 import { incoming } from './fixture.ts'
 import { feishuFixture } from './feishu-fixture.ts'
+
+vi.mock('node:os', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:os')>()
+  return { ...actual, homedir: vi.fn(actual.homedir) }
+})
 
 const cleanup: Array<() => Promise<unknown>> = []
 afterEach(async () => { vi.restoreAllMocks(); for (const close of cleanup.splice(0).reverse()) await close() })
@@ -88,7 +93,7 @@ it('supports Lark switching, cancellation, disconnect and English pairing', asyn
   const h = await harness()
   vi.spyOn(FeishuApi.prototype, 'probe').mockResolvedValue({ name: 'fake', openId: 'ou_bot' })
   await h.call('save', h.form({ region: 'lark' })); expect(h.config.apiOrigin).toBe('https://open.larksuite.com')
-  await h.call('save', h.form()); expect(h.config.apiOrigin).toBe('https://open.feishu.cn')
+  await h.call('save', h.form({ region: 'feishu', locale: 'zh-CN' })); expect(h.config.apiOrigin).toBe('https://open.feishu.cn')
   const reply = vi.spyOn(FeishuApi.prototype, 'reply').mockResolvedValue()
   await h.call('save', h.form({ locale: 'en' })); await h.call('pairStart')
   h.manager.receive(parseMessage(JSON.stringify(incoming('pair', `/dsh pair ${h.manager.status().pairing!.code}`)))!, h.config)
@@ -165,4 +170,40 @@ it('does not let late QR rendering overwrite completed registration and cancels 
   })
   await failure.call('qrStart', { cwd: failure.cwd })
   await vi.waitFor(() => expect(failure.manager.status().qr?.state).toBe('cancelled'))
+})
+
+
+it('binds an existing application with only credentials and automatically offers explicit pairing', async () => {
+  const h = await harness()
+  const status = await h.call('save', { appId, appSecret: 'NEW_SECRET' })
+  expect(h.config).toMatchObject({ appId, appSecret: 'NEW_SECRET', cwd: h.cwd, allowedUsers: [] })
+  expect(status).toMatchObject({ pairing: { code: expect.stringMatching(/^[0-9a-f]{16}$/) } })
+  const code = h.manager.status().pairing!.code
+  h.manager.receive(parseMessage(JSON.stringify(incoming('autopair', `/dsh pair ${code}`)))!, h.config)
+  await vi.waitFor(() => expect(h.config.allowedUsers).toEqual(['ou_owner']))
+  expect(h.manager.status().pairing).toBeNull()
+  await vi.waitFor(() => expect(h.fixture.messages).toHaveLength(1))
+})
+
+it('preserves existing same-app authorization and optional settings, and clears authorization on app replacement', async () => {
+  const h = await harness()
+  vi.spyOn(FeishuApi.prototype, 'probe').mockResolvedValue({ name: 'bot', openId: 'ou_bot' })
+  await h.call('save', h.form({ allowedUsers: ['ou_owner'], region: 'lark', locale: 'en' }))
+  await h.call('save', { appId, appSecret: 'REPLACEMENT_SECRET' })
+  expect(h.config).toMatchObject({ allowedUsers: ['ou_owner'], apiOrigin: 'https://open.larksuite.com', locale: 'en', cwd: h.cwd })
+  expect(h.manager.status().pairing).toBeNull()
+  await h.call('save', { appId: 'cli_1111111111111111', appSecret: 'NEW_APP_SECRET' })
+  expect(h.config.allowedUsers).toEqual([])
+  expect(h.manager.status().pairing).not.toBeNull()
+})
+
+it.each(['save', 'qrStart'])('creates the default directory when %s omits a workspace', async endpoint => {
+  const h = await harness(async () => ({ client_id: appId, client_secret: 'fake', user_info: { open_id: 'ou_scanner' } }))
+  vi.mocked(homedir).mockReturnValue(h.cwd)
+  await h.settings.update('feishu-im', { account: { ...h.config, cwd: '' } }, h.revision)
+  vi.spyOn(FeishuApi.prototype, 'probe').mockResolvedValue({ name: 'bot', openId: 'ou_bot' })
+  await h.call(endpoint, endpoint === 'save' ? { appId, appSecret: 'fake' } : {})
+  if (endpoint === 'qrStart') await vi.waitFor(() => expect(h.manager.status().qr?.state).toBe('complete'))
+  expect(h.config.cwd).toBe(join(h.cwd, 'dsh-workspaces', 'feishu-im'))
+  expect((await stat(defaultWorkspace())).isDirectory()).toBe(true)
 })

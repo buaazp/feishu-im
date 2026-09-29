@@ -1,10 +1,15 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createManagementProgram, diagnose, type ManagementEnvironment } from '../src/management.ts'
 import { readConfiguration, writeConfiguration } from '../src/profile.ts'
 import { feishuFixture } from './feishu-fixture.ts'
+
+vi.mock('node:os', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:os')>()
+  return { ...actual, homedir: vi.fn(actual.homedir) }
+})
 
 let root: string, directory: string, work: string, environment: ManagementEnvironment, output: string
 const probe = vi.fn<NonNullable<ManagementEnvironment['probe']>>()
@@ -19,7 +24,7 @@ beforeEach(async () => {
   environment = { directory, version: '0.2.0', readSecret: async () => 'fake-secret\n', probe, exitCode,
     write: value => { output += value }, writeError: value => { output += value } }
 })
-afterEach(async () => { await rm(root, { recursive: true, force: true }) })
+afterEach(async () => { vi.restoreAllMocks(); await rm(root, { recursive: true, force: true }) })
 
 it('configures native credentials, explicit users and a workspace without a CLI dependency', async () => {
   await run('setup', '--app-id', appId, '--secret-stdin', '--workspace', work, '--allow-user', 'ou_owner, ,ou_second', '--allow-user', 'ou_owner', '--locale', 'en')
@@ -64,4 +69,22 @@ it('exposes useful help and version without contacting Feishu', async () => {
   await expect(run('--version')).rejects.toMatchObject({ exitCode: 0 }); expect(output).toContain('0.2.0')
   await expect(run('setup', '--help')).rejects.toMatchObject({ exitCode: 0 }); expect(output).toContain('--secret-stdin')
   await expect(run('--unknown')).rejects.toMatchObject({ exitCode: 1 }); expect(probe).not.toHaveBeenCalled()
+})
+
+
+it('makes --workspace optional and creates a default directory outside the profile', async () => {
+  vi.mocked(homedir).mockReturnValue(root)
+  await run('setup', '--app-id', appId, '--secret-stdin')
+  const cwd = join(root, 'dsh-workspaces', 'feishu-im')
+  expect(await readConfiguration(directory)).toMatchObject({ appId, cwd, allowedUsers: [] })
+  expect((await stat(cwd)).isDirectory()).toBe(true)
+})
+
+
+it('preserves authorization on repeated credential setup and closes a replacement application', async () => {
+  await run('setup', '--app-id', appId, '--secret-stdin', '--workspace', work, '--allow-user', 'ou_owner')
+  await run('setup', '--app-id', appId, '--secret-stdin', '--workspace', work)
+  expect((await readConfiguration(directory)).allowedUsers).toEqual(['ou_owner'])
+  await run('setup', '--app-id', 'cli_1111111111111111', '--secret-stdin', '--workspace', work)
+  expect((await readConfiguration(directory)).allowedUsers).toEqual([])
 })
