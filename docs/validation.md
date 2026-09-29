@@ -11,6 +11,18 @@ Run `npm run check`, `npm run build`, `npm run test:integration` and `npm run pa
 
 Live QR registration, tenant administration policies and actual Feishu chat rendering require an authorized Feishu application and human account. They are not exercised by automated tests. Local fixtures verify protocol contracts without claiming a live-tenant acceptance result.
 
+## Settings, persistent tasks and Markdown — 0.2.3, 2026-09-29
+
+- macOS, Node 26.7.0, npm 11.19.0.
+- `npm run check`: 148 tests passed with 100% per-file statements, branches, functions and lines; TypeScript and lint passed.
+- Packed installation passed on published dsh 0.1.7-alpha.2 and a freshly installed 0.1.5-rc.2: credentials-only setup, automatic explicit pairing, preset tool execution, history/restart deduplication, new tasks, directory switching, native archive, cancellation and rich `post` replies.
+- Lifecycle regressions cover retained idle tasks, legacy admission import before task switches, storage failure/recovery, archive during creation, stop during admission backlog, Web-originated work, and precise reply/decision ownership when Web and Feishu share a task.
+- Markdown fixtures cover CommonMark/GFM payloads, JSON byte limits, Unicode, CRLF and code fences spanning chunks. The payload follows the [official Feishu rich-text message contract](https://open.feishu.cn/document/server-docs/im-v1/message-content-description/create_json.md).
+- An isolated real dsh 0.1.7 page in Microsoft Edge showed the completed task under Ungrouped and the native plugin configuration entry. The binding form contained only App ID and App Secret. Legacy expansion and current row slots also passed component tests.
+- `npm run package:check` passed: 72 shipping files, 19 Markdown documents and publint without warnings. The local 0.2.3 tarball is unpublished; existing user profiles were not changed. No real Feishu messages were sent.
+
+中文：148 项测试及所有源码的四项 100% 覆盖率检查通过；两个已发布 dsh 版本均通过真实安装、任务工具、新建、切换目录、归档与重启测试。真实浏览器确认完成的任务留在「未分组」，配置表单只需 App ID 和 App Secret。飞书 Markdown 由协议测试验证，未宣称完成真实飞书客户端验收；没有修改现有用户 profile。
+
 ## Local verification — 2026-09-23
 
 - macOS, Node 26.7.0, pnpm 12.5.1; published dsh 0.1.7-alpha.2.

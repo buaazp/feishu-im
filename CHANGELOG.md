@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.3 (unreleased)
+
+- Simplify connection to QR creation or App ID / App Secret binding, with the automatic `~/dsh-workspaces/feishu-im` default and one-use pairing code. Preserve same-app authorization and clear it by default when replacing an app; make CLI `--workspace` optional. Use the native plugin row configuration entry and a collapsible legacy settings card.
+- Keep completed/stopped Feishu tasks in Ungrouped; persist chat routing and add `/dsh new`, `/dsh archive`, and `/dsh cd PATH`, preserving admission deduplication across switches and restarts through the published storage-domain and Workspace APIs on both supported host generations.
+- Send native Feishu Markdown posts with Unicode-safe byte bounds and code-fence continuation.
+- 配置仅保留「扫码创建机器人」和「绑定已有应用」，绑定只需 App ID / App Secret；默认目录自动创建，页面保存后在无授权时自动提供一次性配对码，CLI 的 `--workspace` 可省略。
+- 完成或停止的任务保留在「未分组」，支持 `/dsh new`、`/dsh archive`、`/dsh cd 路径`；通过两种宿主均支持的公开 API 持久保存聊天路由、归档与跨任务去重记录。
+- 回复使用飞书原生 Markdown 富文本，按字节限制安全分段并延续代码围栏。
+
 ## 0.2.2
 
 - Lower the minimum supported dsh to `0.1.5-rc.2`, Cordis to `4.0.2`, loader to `1.0.3`, and Schemastery to `3.18.2`. Preserve support for `0.1.7-alpha.2`.
