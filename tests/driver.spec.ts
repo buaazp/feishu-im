@@ -11,6 +11,32 @@ afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await c
 const harness = (patch: Parameters<typeof createDriverHarness>[1] = {}) => createDriverHarness(cleanup, patch)
 
 describe('private-chat Agent ownership', () => {
+  it('keeps completed tasks live and ungrouped until explicitly archived', async () => {
+    const h = await harness()
+    h.send('persistent', 'first')
+    await h.waitReply('result', '第 1 条消息')
+    expect(h.ctx.agents.roots()).toHaveLength(1)
+    h.send('newtask', '/dsh new')
+    await h.waitReply('new', '新任务')
+    h.send('newprompt', 'second task')
+    await h.waitReply('result', '第 1 条消息：second task')
+    expect(h.ctx.agents.roots()).toHaveLength(2)
+    h.send('archive', '/dsh archive')
+    await h.waitReply('archive', '已归档')
+    expect(h.ctx.agents.roots()).toHaveLength(1)
+  })
+
+  it('switches directory into a fresh task and preserves the prior task', async () => {
+    const h = await harness()
+    h.send('firstdir', 'first')
+    await h.waitReply('result', '第 1 条消息')
+    h.send('switchdir', `/dsh cd ${h.config.cwd}`)
+    await h.waitReply('cd', '工作目录')
+    h.send('nextdir', 'next task')
+    await h.waitReply('result', '第 1 条消息：next task')
+    expect(h.ctx.agents.roots()).toHaveLength(2)
+  })
+
   it('localizes control replies while preserving the model answer', async () => {
     const h = await harness({ locale: 'en' })
     h.send('help', '/dsh help')
@@ -21,11 +47,12 @@ describe('private-chat Agent ownership', () => {
     await h.idle()
   })
 
-  it('continues saved history and suppresses duplicate durable admissions after worker disposal', async () => {
+  it('continues saved history and suppresses duplicate durable admissions after restart', async () => {
     const h = await harness()
     h.send('1', 'first')
     await h.waitReply('result', '第 1 条消息：first')
     await h.idle()
+    await h.restart()
     h.send('2', 'second')
     await h.waitReply('result', '第 2 条消息：second')
     await h.idle()
@@ -127,12 +154,13 @@ describe('private-chat Agent ownership', () => {
     h.reply.mockImplementationOnce(() => pending.promise)
     h.send('1', '/dsh help')
     h.send('2', '/dsh status')
-    expect(h.reply).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(h.reply).toHaveBeenCalledTimes(1))
     pending.reject(new Error('network unavailable'))
     await vi.waitFor(() => { expect(h.reply.mock.settledResults[0]?.type).toBe('rejected') })
     const stopped = Promise.withResolvers<undefined>()
     h.reply.mockImplementationOnce(() => stopped.promise)
     h.send('3', '/dsh help')
+    await vi.waitFor(() => expect(h.reply).toHaveBeenCalledTimes(2))
     const disposed = h.driver.dispose()
     stopped.reject(new Error('aborted'))
     await disposed
@@ -154,6 +182,7 @@ describe('private-chat Agent ownership', () => {
     const lookup = Promise.withResolvers<undefined>()
     vi.spyOn(h.ctx.sessionPersistence, 'stat').mockImplementation(() => lookup.promise)
     h.send('1', 'first')
+    await vi.waitFor(() => expect(h.ctx.sessionPersistence.stat).toHaveBeenCalled())
     const disposed = h.driver.dispose()
     lookup.resolve(undefined)
     await disposed
@@ -238,13 +267,13 @@ it('preserves the chosen preset on resume and refuses to retrofit a preset onto 
   const preset = { id: 'original' }
   const registry = { resolve: vi.fn(async () => preset), mount: vi.fn(async () => preset) }
   h.ctx.provide('agentPresets', registry as unknown as import('@deepseek-ai/dsh-agent-preset-registry').AgentPresetRegistry)
-  h.send('presetone', 'first'); await h.waitReply('result', '第 1 条消息'); await h.idle()
+  h.send('presetone', 'first'); await h.waitReply('result', '第 1 条消息'); await h.idle(); await h.restart()
   h.send('presettwo', 'second'); await h.waitReply('result', '第 2 条消息'); await h.idle()
   expect(registry.resolve).toHaveBeenCalledOnce()
   expect(registry.mount.mock.calls).toHaveLength(2)
   expect(registry.mount.mock.calls).toEqual([expect.arrayContaining(['original']), expect.arrayContaining(['original'])])
   const legacy = await harness()
-  legacy.send('legacyone', 'first'); await legacy.waitReply('result', '第 1 条消息'); await legacy.idle()
+  legacy.send('legacyone', 'first'); await legacy.waitReply('result', '第 1 条消息'); await legacy.idle(); await legacy.restart()
   legacy.ctx.provide('agentPresets', registry as unknown as import('@deepseek-ai/dsh-agent-preset-registry').AgentPresetRegistry)
   legacy.send('legacytwo', 'second'); await legacy.waitReply('failure', '启动失败'); await legacy.idle()
   expect(legacy.model.requests).toHaveLength(1)

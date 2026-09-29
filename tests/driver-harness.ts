@@ -8,6 +8,10 @@ import AgentDefaultModel from '@deepseek-ai/dsh-agent-default-model'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import JsonlPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SessionQuery from '@deepseek-ai/dsh-session-query-sqlite'
+import Storage from '@deepseek-ai/dsh-storage'
+import * as StorageJson from '@deepseek-ai/dsh-storage-json'
+import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
+import WorkspaceRegistry from '@deepseek-ai/dsh-workspace'
 import { expect, vi } from 'vitest'
 import { Config } from '../src/config.ts'
 import { FeishuDriver } from '../src/driver.ts'
@@ -22,6 +26,10 @@ export async function createDriverHarness(cleanup: Array<() => Promise<unknown>>
   cleanup.push(() => ctx.fiber.dispose())
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(JsonlPersistence, { root, compression: 'none' })
+  await ctx.plugin(Storage)
+  await ctx.plugin(StorageJson, { root: join(root, 'state') })
+  await ctx.plugin(StorageDomain, { backend: 'json' })
+  await ctx.plugin(WorkspaceRegistry)
   await ctx.plugin(SessionQuery, { path: ':memory:', openAt: 'never' })
   await ctx.plugin(AgentDefaultModel, { provider: 'lark-test', model: 'test' })
   await ctx.plugin(AgentLoop, { agents: [] })
@@ -30,7 +38,7 @@ export async function createDriverHarness(cleanup: Array<() => Promise<unknown>>
   const config: Config = Config({ appId: 'cli_0123456789abcdef', appSecret: 'fake-secret', cwd: root, allowedUsers: ['ou_owner'], ...patch })
   const cli: MessageTransport = { reply: vi.fn(), card: vi.fn(async () => 'om_progress'), updateCard: vi.fn(async () => {}) }
   const reply = vi.spyOn(cli, 'reply').mockResolvedValue()
-  const driver = new FeishuDriver(ctx, config, cli)
+  let driver = new FeishuDriver(ctx, config, cli)
   cleanup.push(() => driver.dispose())
   const send = (id: string, text: string, sender?: string) => { driver.receive(JSON.stringify(incoming(id, text, sender))) }
   const waitReply = async (phase: string, text: string) => {
@@ -38,6 +46,7 @@ export async function createDriverHarness(cleanup: Array<() => Promise<unknown>>
       expect(reply.mock.calls.map(call => [call[1], call[2]])).toEqual(expect.arrayContaining([[phase, expect.stringContaining(text)]]))
     }, { timeout: 20_000 })
   }
-  const idle = async () => { await vi.waitFor(() => { expect(ctx.agents.roots()).toHaveLength(0) }, { timeout: 20_000 }) }
-  return { ctx, cli, model, config, driver, reply, send, waitReply, idle }
+  const idle = async () => { await driver.whenIdle(); expect(ctx.agents.roots().every(agent => agent.status === 'idle')).toBe(true) }
+  const restart = async () => { await driver.dispose(); driver = new FeishuDriver(ctx, config, cli) }
+  return { ctx, cli, model, config, get driver() { return driver }, reply, send, waitReply, idle, restart }
 }

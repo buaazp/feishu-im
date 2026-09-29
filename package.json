@@ -1,7 +1,7 @@
 {
   "name": "dsh-feishu-im",
-  "version": "0.2.2",
-  "description": "Run dsh tasks from Feishu private chats with direct SDK connectivity, live progress and interactive decisions.",
+  "version": "0.2.3",
+  "description": "Run persistent dsh tasks from Feishu private chats with simple setup, Markdown replies and interactive decisions.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -82,14 +82,17 @@
     "@deepseek-ai/dsh-session-query": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
     "@deepseek-ai/dsh-settings": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
     "@deepseek-ai/dsh-user-approval": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
-    "@deepseek-ai/dsh-user-questions": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1"
+    "@deepseek-ai/dsh-user-questions": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-storage-domain": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1",
+    "@deepseek-ai/dsh-workspace": "^0.1.5-rc.2 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1"
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "~3.18.2",
     "@larksuiteoapi/node-sdk": "1.74.0",
     "commander": "^14.0.1",
     "qrcode": "1.5.4",
-    "yaml": "^2.8.1"
+    "yaml": "^2.8.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@deepseek-ai/dsh": "0.1.7-alpha.2",
@@ -122,7 +125,11 @@
     "typescript": "~5.9.3",
     "vitest": "4.1.11",
     "ws": "8.21.3",
-    "@deepseek-ai/dsh-agent-preset-registry": "0.1.7-alpha.2"
+    "@deepseek-ai/dsh-agent-preset-registry": "0.1.7-alpha.2",
+    "@deepseek-ai/dsh-storage-domain": "0.1.7-alpha.2",
+    "@deepseek-ai/dsh-workspace": "0.1.7-alpha.2",
+    "@deepseek-ai/dsh-storage": "0.1.7-alpha.2",
+    "@deepseek-ai/dsh-storage-json": "0.1.7-alpha.2"
   },
   "bin": {
     "feishu-im": "./bin/feishu-im.mjs"

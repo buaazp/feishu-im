@@ -12,7 +12,7 @@ import { bindSettings, readAccount } from './settings-compat.ts'
 
 export { LiveConfig as Config } from './config.ts'
 export const name = 'feishu-im'
-export const inject = ['agents', 'agentDefaultModel', 'sessions', 'sessionPersistence', 'sessionQuery']
+export const inject = ['agents', 'agentDefaultModel', 'sessions', 'sessionPersistence', 'sessionQuery', 'storageDomain', 'workspaceRegistry']
 
 export function apply(ctx: Context, config: LiveConfig): void {
   if (ctx.get('appExit') === undefined) throw new Error('feishu-im: launch through a dsh profile')
