@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4 (unreleased)
+
+- Support the published dsh `0.2.0-rc.2` used by Desktop with an exact peer-version alternative. The normal plugin installer now accepts this tested combination without compatibility exemptions.
+- Pin the complete development Harness graph to `0.2.0-rc.2`, retain packed-install CI coverage for `0.1.5-rc.2` and `0.1.7-alpha.2`, and clarify Desktop versus terminal runtime versions in both user guides.
+- 修复 Desktop 的 dsh `0.2.0-rc.2` 拒绝安装的问题；明确声明支持已验证的版本，无需开启版本豁免。开发依赖统一升级，并保留旧版安装回归测试。
+
 ## 0.2.3 (unreleased)
 
 - Simplify connection to QR creation or App ID / App Secret binding, with the automatic `~/dsh-workspaces/feishu-im` default and one-use pairing code. Preserve same-app authorization and clear it by default when replacing an app; make CLI `--workspace` optional. Use the native plugin row configuration entry and a collapsible legacy settings card.

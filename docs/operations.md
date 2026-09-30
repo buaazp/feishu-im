@@ -9,6 +9,8 @@ Install into a dsh Web profile, restart it, then open **Plugins → dsh-feishu-i
 | Plugin page absent | Install the built tarball into the profile you actually launch, enable the bundle and restart dsh. |
 | `ERR_PNPM_GIT_RESOLVE_FAILED` for a tarball | Use the tarball’s absolute path. dsh runs pnpm from the profile directory; a bare `artifacts/file.tgz` is ambiguous. |
 | pnpm blocks installation | Decide the `protobufjs` script in the Plugins page and retry, or explicitly deny its optional version-check script in profile `pnpm-workspace.yaml`. |
+| Desktop rejects the plugin as incompatible with dsh `0.2.0-rc.2` | Install plugin `0.2.4` or later with explicit support for that runtime. Version `0.2.3` only declared 0.1.x support. Check Desktop's runtime version, which can differ from the terminal CLI; no exemption is needed for the tested combination. |
+| CLI says the `desktop` profile is managed exclusively by Electron | Install the local tarball through Desktop's plugin manager. The external CLI deliberately cannot modify that profile. |
 | QR creation fails | Organization permissions or platform rollout may block registration. Retry or configure an existing enterprise app. |
 | Credentials fail | Check App ID, App Secret and enabled bot capability. International Lark uses `apiOrigin: https://open.larksuite.com` in advanced configuration. |
 | Connected but silent | Publish the app, make it available to your user, subscribe to `im.message.receive_v1`, use private text, and pair the sender. |

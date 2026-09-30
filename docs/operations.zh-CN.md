@@ -9,6 +9,8 @@
 | 找不到配置页 | 确认安装了构建后的 tarball、启用了插件，并重启了实际使用的 profile。 |
 | 本地包提示 `ERR_PNPM_GIT_RESOLVE_FAILED` | 改用安装包绝对路径。dsh 在 profile 目录中调用 pnpm，裸写 `artifacts/file.tgz` 可能被误认成 GitHub 仓库。 |
 | pnpm 阻止安装 | 在插件页决定 `protobufjs` 脚本后重试，或在 profile 的 `pnpm-workspace.yaml` 明确禁用这个可选版本检查脚本。 |
+| Desktop 提示与 dsh `0.2.0-rc.2` 不兼容 | 安装明确支持该运行时的插件 `0.2.4` 或更新版本；`0.2.3` 只声明支持 0.1.x。核对 Desktop 实际运行时版本，它可能与终端 CLI 不同；已测试组合无需开启兼容性豁免。 |
+| CLI 提示 `desktop` profile 仅由 Electron 应用管理 | 通过 Desktop 插件管理安装本地 tarball；外部 CLI 不允许修改这个 profile。 |
 | 扫码失败 | 可能受组织权限、审批或平台开放范围限制；重试或使用已有企业自建应用。 |
 | 凭据验证失败 | 核对 App ID、App Secret 及机器人能力；Lark 国际版在高级配置中使用 `apiOrigin: https://open.larksuite.com`。 |
 | 已连接但无回复 | 发布应用，设置用户可用范围，订阅 `im.message.receive_v1`，使用私聊文本并完成发送者配对。 |

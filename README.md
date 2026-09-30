@@ -12,7 +12,7 @@ Run dsh tasks in private Feishu bot chats. The plugin calls Feishu OpenAPI direc
 
 ## Install
 
-Use Node.js `^22.19.0` or `>=24.0.0`. The minimum supported dsh is **`0.1.5-rc.2`**; `0.1.7-alpha.2` is also tested. Existing `0.1.5-rc.2` installations do not need an upgrade. See the [compatibility matrix](docs/compatibility.md) for supported prerelease ranges.
+Use Node.js `^22.19.0` or `>=24.0.0`. The minimum supported dsh is **`0.1.5-rc.2`**; `0.1.7-alpha.2` and Desktop's **`0.2.0-rc.2`** are also tested. Existing `0.1.5-rc.2` installations do not need an upgrade. See the [compatibility matrix](docs/compatibility.md) for supported prerelease ranges.
 
 Build an installable package from this repository:
 
@@ -21,10 +21,12 @@ npm ci
 npm run build
 mkdir -p artifacts
 npm pack --pack-destination artifacts
-dsh plugin --profile web add "$PWD/artifacts/dsh-feishu-im-0.2.3.tgz"
+dsh plugin --profile web add "$PWD/artifacts/dsh-feishu-im-0.2.4.tgz"
 ```
 
 Use the absolute path: dsh runs pnpm inside the profile directory. A bare `artifacts/package.tgz` can be interpreted as a GitHub repository and fail with `ERR_PNPM_GIT_RESOLVE_FAILED`. Changing GitHub authentication does not fix that path.
+
+For **DSH Desktop**, install `artifacts/dsh-feishu-im-0.2.4.tgz` through Desktop's plugin manager into the profile it runs. Desktop's bundled runtime can differ from the `dsh --version` in your terminal. Version 0.2.4 declares support for the tested `0.2.0-rc.2` runtime; no compatibility exemption is needed. The command above targets the separate Web profile.
 
 pnpm 11+ may require a decision about the `protobufjs` install script. The dsh Plugins page offers **Allow these scripts and retry**. That script only checks dependent version ranges. Alternatively, explicitly set `allowBuilds.protobufjs: false` in this profile's `pnpm-workspace.yaml` and retry; the plugin is tested with that script denied. Preserve other workspace settings.
 

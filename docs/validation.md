@@ -11,6 +11,17 @@ Run `npm run check`, `npm run build`, `npm run test:integration` and `npm run pa
 
 Live QR registration, tenant administration policies and actual Feishu chat rendering require an authorized Feishu application and human account. They are not exercised by automated tests. Local fixtures verify protocol contracts without claiming a live-tenant acceptance result.
 
+## Desktop runtime compatibility — 0.2.4, 2026-09-30
+
+- Reproduced the reported installation rejection using the original 0.2.3 tarball and a fresh official npm `@deepseek-ai/dsh@0.2.0-rc.2` host. No version exemption was granted.
+- Updated the peer declarations with exact `0.2.0-rc.2` support. The current runtime source also compiles against its published declarations without API replacements or sibling-checkout imports.
+- `npm run check`: 148 tests passed against the complete pinned 0.2.0-rc.2 development graph, with 100% per-file statements, branches, functions and lines. TypeScript and lint passed.
+- `npm run test:integration`: the new package passed normal installation, authenticated configuration, explicit pairing, real preset tools, interactive cards, task/directory switching, native archive, stop and restart deduplication on `0.2.0-rc.2`. Separate published-host runs passed on `0.1.5-rc.2` and `0.1.7-alpha.2`.
+- The 0.2.0 client slot, Connection, Settings, Agent lifecycle, Session query, storage-domain and Workspace contracts were checked against official published packages. No plugin runtime/client source change was necessary. CI uses the new host by default and retains both old-host installation checks.
+- `npm run package:check` passed with 72 shipping files, 19 Markdown documents and no publint warnings. The actual Desktop profile rejects external CLI installation by design; installing the new tarball through the native application remains a user step. The existing Desktop profile was not changed.
+
+中文：已复现 0.2.3 在 Desktop 使用的 dsh `0.2.0-rc.2` 上的版本拒绝，并验证 0.2.4 无需豁免即可正常安装。148 项测试、四项 100% 覆盖率，以及三个 dsh 版本的完整安装运行回归均通过；未发送真实飞书消息。
+
 ## Settings, persistent tasks and Markdown — 0.2.3, 2026-09-29
 
 - macOS, Node 26.7.0, npm 11.19.0.
