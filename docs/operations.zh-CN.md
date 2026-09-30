@@ -2,7 +2,7 @@
 
 [English](operations.md)
 
-安装到实际使用的 dsh Web profile，重启后打开**插件 → dsh-feishu-im** 中 **feishu-im** 行的配置入口。旧版 dsh 在**设置 → 插件 → Feishu IM** 展开卡片。选择扫码创建机器人或绑定已有应用；绑定只需 App ID / App Secret，默认任务目录 `~/dsh-workspaces/feishu-im` 自动创建。保持 dsh 运行才能接收长连接消息。[systemd 示例](../examples/feishu-im.service)启动 Web profile，请按机器调整用户、程序及工作目录。
+安装到实际使用的 dsh Web profile，重启后打开**插件 → dsh-feishu-im** ，在插件介绍与「包含的组件」之间直接配置。旧版 dsh 在**设置 → 插件 → Feishu IM** 展开卡片。选择扫码创建机器人或绑定已有应用；绑定只需 App ID / App Secret，默认任务目录 `~/dsh-workspaces/feishu-im` 自动创建。保持 dsh 运行才能接收长连接消息。[systemd 示例](../examples/feishu-im.service)启动 Web profile，请按机器调整用户、程序及工作目录。
 
 | 现象 | 检查方式 |
 | --- | --- |

@@ -32,7 +32,7 @@ async function harness(zh = true, configured = false, summary = false) {
   return { get renderer() { return renderer }, call, click, change, poll, props, setStatus(patch: Partial<typeof status>) { status = { ...status, ...patch } }, get status() { return status } }
 }
 
-it('renders new summary and legacy page slots with the same configuration controls', async () => {
+it('puts configuration on the bundle detail page and gives legacy Web an accessible settings card', async () => {
   const h = await harness(true, false, true)
   expect(JSON.stringify(h.renderer.toJSON())).toContain('扫码连接飞书'); expect(h.call).not.toHaveBeenCalled()
   await act(async () => h.renderer.update(<FeishuPage rpc={h.props.rpc} locale={h.props.locale} />)); expect(h.call).toHaveBeenCalled()
@@ -41,11 +41,24 @@ it('renders new summary and legacy page slots with the same configuration contro
   const entries: Array<{ name: string; key: string; component: React.ComponentType<typeof h.props> }> = []
   apply({ slots: { inject: (_name: string, register: () => void) => register(), register: (options: { name: string; key: string; inject: () => unknown }, component: React.ComponentType<typeof h.props>) => { entries.push({ ...options, component }); options.inject() } }, connection: { rpc: h.props.rpc }, locale: h.props.locale } as unknown as Context)
   expect(entries).toHaveLength(2)
-  expect(entries).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'dsh-feishu-im#feishu-im' }), expect.objectContaining({ name: 'settings.plugin.item', key: 'feishu-im' })]))
+  expect(entries).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'plugins.bundle.config', key: 'dsh-feishu-im' }), expect.objectContaining({ name: 'settings.plugin.item', key: 'feishu-im' })]))
+  const Page = entries.find(entry => entry.name === 'plugins.bundle.config')!.component
+  await act(async () => h.renderer.update(<Page {...h.props} view="page" />))
+  expect(h.renderer.root.findByType('section').props['aria-label']).toBe('Feishu IM')
+  expect(h.renderer.root.findAllByProps({ 'aria-expanded': false })).toHaveLength(0)
   const Card = entries.find(entry => entry.name === 'settings.plugin.item')!.component
   await act(async () => h.renderer.update(<Card {...h.props} view="page" />))
-  expect(h.renderer.root.findByType('details').props.open).toBeUndefined()
-  expect(h.renderer.root.findByType('summary').children.join('')).toContain('Feishu IM')
+  const header = () => h.renderer.root.findAllByType('button').find(button => button.props['aria-expanded'] !== undefined)!
+  expect(header().props['aria-expanded']).toBe(false)
+  expect(header().findAllByType('span').flatMap(span => span.children.filter(child => typeof child === 'string')).join('')).toContain('扫码连接飞书')
+  const body = () => h.renderer.root.findByProps({ id: header().props['aria-controls'] })
+  expect(body().props.hidden).toBe(true)
+  await act(async () => header().props.onClick())
+  expect(header().props['aria-expanded']).toBe(true); expect(body().props.hidden).toBe(false)
+  await h.click('绑定已有应用'); await h.change('input', 0, 'cli_unsaved')
+  await act(async () => header().props.onClick()); expect(body().props.hidden).toBe(true)
+  await act(async () => header().props.onClick())
+  expect(h.renderer.root.findAllByType('input')[0]!.props.value).toBe('cli_unsaved')
 })
 
 it('binds with only App ID and App Secret and displays the workspace as read-only chat guidance', async () => {

@@ -10,7 +10,7 @@
 
 `FeishuEvents` 使用官方 SDK 的 WebSocket 客户端和事件分发器。公开 HTTP 适配器管理连接发现请求，公开 Node Agent 管理握手和连接 socket。关闭时取消连接发现、强制关闭 SDK，并等待持有的请求和 socket 结束。畸形事件被隔离，日志不输出 SDK 的凭据或连接票据。
 
-兼容层在旧版 dsh 使用公开 SettingsScope register/get/watch，在 0.1.7 使用 volatile Config/SettingsForms；两者都按修订号实时更新 `account`，App Secret 标记为 secret。旧版 settings 命名空间入口使用带展开箭头的卡片，新版插件页只贡献行配置入口，避免重复表单；不存在的入口不会激活。配置页通过 dsh 的已认证 Connection 和带修订号的 Settings 服务读写。
+兼容层在旧版 dsh 使用公开 SettingsScope register/get/watch，在 0.1.7 使用 volatile Config/SettingsForms；两者都按修订号实时更新 `account`，App Secret 标记为 secret。旧版 settings 命名空间入口使用与内置插件一致的标题、说明、右侧展开箭头和主题颜色；新版插件详情页只贡献 bundle 配置入口，位于介绍与组件列表之间，避免重复表单；不存在的入口不会激活。配置页通过 dsh 的已认证 Connection 和带修订号的 Settings 服务读写。
 
 页面只提供「扫码创建机器人」和「绑定已有应用」。扫码直接调用飞书官方应用注册 API，请求最小机器人权限，仅绑定明确返回的扫码用户身份。初始请求、轮询和等待均可取消且有时间上限。绑定已有应用只需 App ID / App Secret；同一应用保留已授权用户，更换应用默认清空授权。没有授权用户时，页面保存后自动提供随机、限时、单次配对码，仍须由用户在机器人私聊中主动发送才能授权。默认目录为自动创建的 `~/dsh-workspaces/feishu-im`；显式目录必须已存在、可读写且位于 profile 之外。全程不读取 lark-cli 本地状态。
 

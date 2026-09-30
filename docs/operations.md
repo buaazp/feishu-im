@@ -2,7 +2,7 @@
 
 [中文](operations.zh-CN.md)
 
-Install into a dsh Web profile, restart it, then open **Plugins → dsh-feishu-im** and the **feishu-im** row's configuration control. On older dsh, expand **Settings → Plugins → Feishu IM**. Choose QR creation or bind an existing app with App ID / App Secret. The default task directory `~/dsh-workspaces/feishu-im` is created automatically. Keep dsh running to receive long-connection events. The [systemd example](../examples/feishu-im.service) runs the Web profile; adjust user, binary and workspace paths.
+Install into a dsh Web profile, restart it, then open **Plugins → dsh-feishu-im** to configure directly between the plugin description and **Included components**. On older dsh, expand **Settings → Plugins → Feishu IM**. Choose QR creation or bind an existing app with App ID / App Secret. The default task directory `~/dsh-workspaces/feishu-im` is created automatically. Keep dsh running to receive long-connection events. The [systemd example](../examples/feishu-im.service) runs the Web profile; adjust user, binary and workspace paths.
 
 | Symptom | Check |
 | --- | --- |

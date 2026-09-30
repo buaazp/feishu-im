@@ -21,20 +21,20 @@ npm ci
 npm run build
 mkdir -p artifacts
 npm pack --pack-destination artifacts
-dsh plugin --profile web add "$PWD/artifacts/dsh-feishu-im-0.2.4.tgz"
+dsh plugin --profile web add "$PWD/artifacts/dsh-feishu-im-0.2.5.tgz"
 ```
 
 Use the absolute path: dsh runs pnpm inside the profile directory. A bare `artifacts/package.tgz` can be interpreted as a GitHub repository and fail with `ERR_PNPM_GIT_RESOLVE_FAILED`. Changing GitHub authentication does not fix that path.
 
-For **DSH Desktop**, install `artifacts/dsh-feishu-im-0.2.4.tgz` through Desktop's plugin manager into the profile it runs. Desktop's bundled runtime can differ from the `dsh --version` in your terminal. Version 0.2.4 declares support for the tested `0.2.0-rc.2` runtime; no compatibility exemption is needed. The command above targets the separate Web profile.
+For **DSH Desktop**, install `artifacts/dsh-feishu-im-0.2.5.tgz` through Desktop's plugin manager into the profile it runs. Desktop's bundled runtime can differ from the `dsh --version` in your terminal. Version 0.2.5 declares support for the tested `0.2.0-rc.2` runtime; no compatibility exemption is needed. The command above targets the separate Web profile.
 
 pnpm 11+ may require a decision about the `protobufjs` install script. The dsh Plugins page offers **Allow these scripts and retry**. That script only checks dependent version ranges. Alternatively, explicitly set `allowBuilds.protobufjs: false` in this profile's `pnpm-workspace.yaml` and retry; the plugin is tested with that script denied. Preserve other workspace settings.
 
-Restart `dsh --profile web`, open **Plugins** in the sidebar, and select **dsh-feishu-im**. On older dsh, open **Settings → Plugins → Feishu IM** and expand the card's arrow instead. The channel runs beside the existing Web application runner.
+Restart `dsh --profile web`, open **Plugins** in the sidebar, and select **dsh-feishu-im**. In Desktop and newer Web hosts, configuration appears directly below the plugin description and above **Included components**. On older dsh, open **Settings → Plugins → Feishu IM** and expand the card's arrow instead. The channel runs beside the existing Web application runner.
 
 ## Connect a bot
 
-Open the configuration control on the **feishu-im** row and choose **Create a bot with QR** or **Bind an existing app**. The default workspace `~/dsh-workspaces/feishu-im` is created automatically. No directory input is required; use `/dsh cd PATH` in chat to change it.
+Use the configuration on the **dsh-feishu-im** detail page and choose **Create a bot with QR** or **Bind an existing app**. The default workspace `~/dsh-workspaces/feishu-im` is created automatically. No directory input is required; use `/dsh cd PATH` in chat to change it.
 
 **QR:** Select **Create a bot with QR → Generate QR code**, scan with Feishu and confirm on your phone. This official registration flow is subject to your organization's app creation permissions and administrator approval. Credentials are saved on success. When Feishu returns the scanner's open_id, only that user is authorized; otherwise authorize with a pairing code.
 

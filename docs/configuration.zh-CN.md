@@ -2,7 +2,7 @@
 
 [English](configuration.md) · [快速开始](../README.zh-CN.md)
 
-Web 页面只提供「扫码创建机器人」和「绑定已有应用」，绑定仅填写 App ID / App Secret。旧版页面展开 **Feishu IM** 卡片，新版打开 **feishu-im** 行配置。默认目录 `~/dsh-workspaces/feishu-im` 自动创建，无需在表单中填写目录。区域、语言和显式授权名单属于下面的高级配置。
+Web 页面只提供「扫码创建机器人」和「绑定已有应用」，绑定仅填写 App ID / App Secret。旧版页面展开 **Feishu IM** 卡片，标题、说明、右侧箭头和主题颜色与内置插件保持一致。Desktop 和新版 Web 打开 **插件 → dsh-feishu-im**，配置直接位于插件介绍与「包含的组件」之间，无需再进入组件子页面。默认目录 `~/dsh-workspaces/feishu-im` 自动创建，无需在表单中填写目录。区域、语言和显式授权名单属于下面的高级配置。
 
 插件添加 `feishu-im` 行，`config.account` 是一个整体原子更新的实时配置。页面先验证机器人凭据，再通过 dsh 保存。0.1.7 使用 profile 配置（权限 `0600`）；旧版使用 dsh SettingsProvider 管理的 settings 文档（默认 `$DSH_HOME/settings.yaml`）中的 `feishu-im.account`，优先于 profile 默认配置。旧版同一 DSH_HOME 下的 profile 共享此命名空间；不同机器人应使用不同 DSH_HOME。配置目录应放在机器人工作目录之外，不要提交到 Git。空凭据表示尚未配置，不会阻止 dsh 启动。
 

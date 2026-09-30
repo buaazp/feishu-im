@@ -1,9 +1,10 @@
 /** Configuration page contributed to the installed bundle's Plugins detail view. */
-import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import React, { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ClientConnectionRpc, ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import { styles } from './client-styles.ts'
 
 declare module '@deepseek-ai/cordis' { interface Context { connection: ConnectionHandle } }
 
@@ -19,7 +20,7 @@ interface Props { rpc: ClientConnectionRpc; locale: LocaleRuntime; view?: 'summa
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     'settings.plugin.item': { kind: 'keyed'; scope: 'root'; owner: { children?: never } }
-    'plugins.row.config': { kind: 'keyed'; scope: 'root'; owner: { view: 'summary' | 'page' } }
+    'plugins.bundle.config': { kind: 'keyed'; scope: 'root'; owner: { view: 'summary' | 'page' } }
   }
 }
 const copy = {
@@ -44,11 +45,15 @@ const copy = {
     errors: { configuration_failed: 'Could not save. Check your settings and retry.', bot_authentication_failed: 'Could not verify the bot. Check App ID, App Secret and bot capability.', invalid_workspace: 'Enter an existing, readable and writable absolute workspace path.', profile_is_not_workspace: 'Choose a task directory outside the dsh profile.', settings_changed: 'Settings changed in another page. Reload before retrying.', settings_readonly: 'These settings are read-only.', not_connected: 'Connect the bot first.', network: 'Cannot connect to dsh. Check that it is running.' },
     connectionHelp: 'Check credentials, long-connection settings and network, then save to reconnect.', none: 'No users are authorized. The bot will not execute tasks.', readonly: 'These settings are read-only.', busy: 'Working…' },
 }
-const styles = `.feishu-settings{max-width:650px;display:grid;gap:20px;font-size:14px;line-height:1.6;color:inherit}.feishu-settings h2{font-size:21px;font-weight:650;margin:0}.feishu-settings p{margin:6px 0;opacity:.8}.feishu-settings label{display:grid;gap:6px;font-weight:550}.feishu-settings input{width:100%;box-sizing:border-box;border:1px solid color-mix(in srgb,currentColor 24%,transparent);border-radius:8px;padding:10px 12px;background:transparent;color:inherit;font:inherit}.feishu-settings input:focus-visible,.feishu-settings button:focus-visible{outline:2px solid #6384e6;outline-offset:3px}.feishu-settings button{border:1px solid color-mix(in srgb,currentColor 24%,transparent);border-radius:8px;padding:9px 14px;background:transparent;color:inherit;font:inherit;cursor:pointer}.feishu-settings button.primary{background:#315bc3;border-color:#315bc3;color:#fff}.feishu-settings button:disabled{opacity:.45;cursor:default}.feishu-settings .tabs{display:flex;gap:8px;flex-wrap:wrap}.feishu-settings .tabs [aria-pressed=true]{background:color-mix(in srgb,#6384e6 15%,transparent);border-color:#6384e6}.feishu-settings .panel{display:grid;gap:16px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:12px;padding:20px}.feishu-settings .status{display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:5px 10px;border-radius:20px;background:color-mix(in srgb,currentColor 7%,transparent)}.feishu-settings .status::before{content:'';width:7px;height:7px;background:#888;border-radius:50%}.feishu-settings .status[data-state=connected]::before{background:#2aa66e}.feishu-settings .error{color:#c64747}.feishu-settings .qr-image{width:232px;height:232px;max-width:100%;margin:auto;background:white;border-radius:10px}.feishu-settings code{display:block;overflow-wrap:anywhere;padding:12px;border-radius:8px;background:color-mix(in srgb,currentColor 6%,transparent);user-select:all}.feishu-settings small{opacity:.72;font-weight:400}.feishu-settings a{color:#6384e6;text-decoration:underline}.feishu-settings fieldset{border:0;padding:0;margin:0;display:grid;gap:16px;min-width:0}@media(max-width:500px){.feishu-settings .panel{padding:14px}.feishu-settings .tabs button{flex:1}}`
+
+
+function useCopy(locale: LocaleRuntime) {
+  const language = useSyncExternalStore(listener => locale.subscribe(listener), () => locale.getSnapshot()).active
+  return copy[language.startsWith('zh') ? 'zh' : 'en']
+}
 
 export function FeishuPage({ rpc, locale, view = 'page' }: Props) {
-  const language = useSyncExternalStore(listener => locale.subscribe(listener), () => locale.getSnapshot()).active
-  const t = copy[language.startsWith('zh') ? 'zh' : 'en']
+  const t = useCopy(locale)
   const [status, setStatus] = useState<Status>(), [tab, setTab] = useState<'qr' | 'manual'>('qr')
   const [form, setForm] = useState({ appId: '', appSecret: '' })
   const revision = useRef<number>(), initialized = useRef(false), dirty = useRef(false), lifetime = useRef<AbortController>()
@@ -128,16 +133,19 @@ export function FeishuPage({ rpc, locale, view = 'page' }: Props) {
 }
 
 function FeishuCard(props: Props) {
-  return <details className="feishu-plugin-card">
-    <summary>Feishu IM</summary>
-    <style>{`.feishu-plugin-card{border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:12px;padding:16px}.feishu-plugin-card>summary{cursor:pointer;font-weight:600}.feishu-plugin-card[open]>summary{margin-bottom:20px}`}</style>
-    <FeishuPage {...props} />
-  </details>
+  const [open, setOpen] = useState(false), bodyId = useId(), t = useCopy(props.locale)
+  return <li className="feishu-plugin-card" data-open={open}>
+    <button type="button" className="feishu-plugin-header" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen(!open)}>
+      <span className="feishu-plugin-heading"><span className="feishu-plugin-name">Feishu IM</span><span className="feishu-plugin-description">{t.summary}</span></span>
+      <svg className="feishu-plugin-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="m3 5 4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    </button>
+    <div id={bodyId} className="feishu-plugin-body" hidden={!open}><FeishuPage {...props} /></div>
+  </li>
 }
 
 export const inject = ['slots', 'connection', 'locale']
 export function apply(ctx: Context): void {
   const face = () => ({ rpc: ctx.connection.rpc, locale: ctx.locale })
   ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({ name: 'settings.plugin.item', key: 'feishu-im', inject: face }, FeishuCard))
-  ctx.slots.inject('plugins.row.config', () => ctx.slots.register({ name: 'plugins.row.config', key: 'dsh-feishu-im#feishu-im', inject: face }, FeishuPage))
+  ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({ name: 'plugins.bundle.config', key: 'dsh-feishu-im', inject: face }, FeishuPage))
 }

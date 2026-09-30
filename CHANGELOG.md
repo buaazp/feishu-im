@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.5 (unreleased)
+
+- Move configuration onto the plugin detail page between the introduction and included components, matching dsh-context. Remove the extra component configuration entry.
+- Match the legacy Web settings card to the built-in cards: stacked title and description, right-side disclosure arrow, shared theme colors, spacing and borders. Keep unsaved inputs when collapsing the card.
+- 配置移到插件详情页的介绍与「包含的组件」之间；Web 卡片统一内置插件的标题、说明、右侧箭头、间距和主题配色，折叠时保留未保存的输入。
+
 ## 0.2.4 (unreleased)
 
 - Support the published dsh `0.2.0-rc.2` used by Desktop with an exact peer-version alternative. The normal plugin installer now accepts this tested combination without compatibility exemptions.

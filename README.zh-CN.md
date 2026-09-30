@@ -21,22 +21,22 @@ npm ci
 npm run build
 mkdir -p artifacts
 npm pack --pack-destination artifacts
-dsh plugin --profile web add "$PWD/artifacts/dsh-feishu-im-0.2.4.tgz"
+dsh plugin --profile web add "$PWD/artifacts/dsh-feishu-im-0.2.5.tgz"
 ```
 
 这里必须使用绝对路径：dsh 在 profile 目录里运行 pnpm。直接写 `artifacts/package.tgz` 可能被当成 GitHub 仓库名，引发 `ERR_PNPM_GIT_RESOLVE_FAILED`；修改 GitHub 认证配置不能修复这个路径。
 
-使用 **DSH Desktop** 时，通过 Desktop 的插件管理安装 `artifacts/dsh-feishu-im-0.2.4.tgz`，目标是 Desktop 实际运行的 profile。Desktop 内置的 dsh 版本可能与终端的 `dsh --version` 不同。0.2.4 已声明支持经过测试的 `0.2.0-rc.2`，无需开启兼容性豁免；上面的命令安装到独立的 Web profile。
+使用 **DSH Desktop** 时，通过 Desktop 的插件管理安装 `artifacts/dsh-feishu-im-0.2.5.tgz`，目标是 Desktop 实际运行的 profile。Desktop 内置的 dsh 版本可能与终端的 `dsh --version` 不同。0.2.5 已声明支持经过测试的 `0.2.0-rc.2`，无需开启兼容性豁免；上面的命令安装到独立的 Web profile。
 
 pnpm 11+ 可能提示 `protobufjs` 安装脚本待决定。dsh 插件页可选择“允许这些脚本并重试”。这个依赖的脚本只检查版本范围；也可以在对应 profile 的 `pnpm-workspace.yaml` 中明确设置 `allowBuilds.protobufjs: false` 后重试，插件已验证不依赖该脚本。不要覆盖文件里的其他配置。
 
-重启 `dsh --profile web`，打开侧栏的**插件**，进入 **dsh-feishu-im**。插件与 Web 应用并存，不替换 dsh 的启动入口。
+重启 `dsh --profile web`，打开侧栏的**插件**，进入 **dsh-feishu-im**。Desktop 和新版 Web 的配置直接显示在插件介绍与「包含的组件」之间。插件与 Web 应用并存，不替换 dsh 的启动入口。
 
 旧版 dsh 的配置入口是 **设置 → 插件 → Feishu IM**，点击卡片的展开箭头进行设置。
 
 ## 连接机器人
 
-打开 **feishu-im** 行的配置入口，选择「扫码创建机器人」或「绑定已有应用」。默认使用并自动创建 `~/dsh-workspaces/feishu-im`；无需填写目录，可在聊天中用 `/dsh cd 路径` 切换。
+在 **dsh-feishu-im** 详情页的配置区域，选择「扫码创建机器人」或「绑定已有应用」。默认使用并自动创建 `~/dsh-workspaces/feishu-im`；无需填写目录，可在聊天中用 `/dsh cd 路径` 切换。
 
 **扫码：** 点击“扫码创建机器人 → 生成二维码”，使用飞书扫描并在手机上确认。此流程由飞书官方提供，可能受组织应用创建权限或管理员审批限制。成功后，插件保存应用凭据；官方返回扫码用户的 open_id 时，只授权该用户。未返回身份时，使用配对码完成授权。
 

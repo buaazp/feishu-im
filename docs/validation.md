@@ -11,6 +11,15 @@ Run `npm run check`, `npm run build`, `npm run test:integration` and `npm run pa
 
 Live QR registration, tenant administration policies and actual Feishu chat rendering require an authorized Feishu application and human account. They are not exercised by automated tests. Local fixtures verify protocol contracts without claiming a live-tenant acceptance result.
 
+## Plugin configuration UI — 0.2.5, 2026-09-30
+
+- Replaced the component subpage with the published `plugins.bundle.config` slot, following dsh-context. Verified an actual update in DeepSeek Harness Desktop `0.2.0-rc.2`: version 0.2.5 displays configuration between the description and Included components, without a second configure control.
+- Compared the legacy Web card beside the built-in Shell, Agent loop, Subagent and Web search cards in an isolated published `0.1.5-rc.2` Web profile. Light and dark themes share the title/description layout, spacing, border, fill and right-side arrow. Expanded controls render correctly.
+- The UI regression first failed for the old row-level registration, then passed for the bundle slot, disclosure accessibility and preservation of unsaved input after collapse/reopen. `npm run check` passed all 148 tests with 100% coverage in all four metrics; build, package checks (75 shipping files) and packed integrations on `0.2.0-rc.2` and `0.1.5-rc.2` passed.
+- The interactive legacy preview exceeded the integration test's overall time budget during manual inspection; it is not counted as a completed automated regression. The independent run without the preview pause subsequently passed (29 seconds).
+
+中文：已在实际 Desktop 安装 0.2.5，确认配置位于插件介绍与「包含的组件」之间；隔离 Web 的深浅色主题均与内置卡片对齐。148 项测试和覆盖率检查通过；人工预览占用测试时间导致该次运行超时，随后单独重跑的完整旧版安装回归已通过。两个宿主版本的完整安装回归均通过，没有发送真实飞书消息。
+
 ## Desktop runtime compatibility — 0.2.4, 2026-09-30
 
 - Reproduced the reported installation rejection using the original 0.2.3 tarball and a fresh official npm `@deepseek-ai/dsh@0.2.0-rc.2` host. No version exemption was granted.

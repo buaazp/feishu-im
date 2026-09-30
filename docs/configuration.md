@@ -2,7 +2,7 @@
 
 [中文](configuration.zh-CN.md) · [Quick start](../README.md)
 
-The Web page offers only **Create a bot with QR** and **Bind an existing app**; binding asks only for App ID / App Secret. Expand the **Feishu IM** card on older dsh, or open the **feishu-im** row configuration on 0.1.7. The default directory `~/dsh-workspaces/feishu-im` is created automatically, with no directory field to fill in. Region, language and explicit authorization lists are advanced settings below.
+The Web page offers only **Create a bot with QR** and **Bind an existing app**; binding asks only for App ID / App Secret. Expand the **Feishu IM** card on older dsh; it uses the same title, description, right-side arrow and theme colors as the built-in cards. In Desktop and newer Web hosts, open **Plugins → dsh-feishu-im**: configuration sits between the description and **Included components**, with no component subpage to open. The default directory `~/dsh-workspaces/feishu-im` is created automatically, with no directory field to fill in. Region, language and explicit authorization lists are advanced settings below.
 
 The bundle inserts an additive `feishu-im` entry. Its `config.account` is one atomic, live setting. The dsh page verifies credentials before saving. On 0.1.7 it writes the profile with mode `0600`; older dsh uses its SettingsProvider document (default `$DSH_HOME/settings.yaml`), under `feishu-im.account`, overriding profile defaults. Older profiles sharing DSH_HOME share this namespace; use separate DSH_HOME directories for different bots. Keep the profile outside the bot's workspace and out of Git. Blank credentials leave the channel unconfigured without stopping dsh.
 
