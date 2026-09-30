@@ -1,6 +1,6 @@
 # Feishu IM for dsh
 
-[简体中文](README.zh-CN.md) · [Configuration](docs/configuration.md) · [Operations](docs/operations.md)
+[简体中文](README.zh-CN.md) · [Setup with screenshots](#connect-a-bot) · [Configuration](docs/configuration.md) · [Operations](docs/operations.md)
 
 Run dsh tasks in private Feishu bot chats. The plugin calls Feishu OpenAPI directly and receives long-connection events through the official Node SDK. **No lark-cli installation is required.**
 
@@ -30,15 +30,43 @@ For **DSH Desktop**, install `artifacts/dsh-feishu-im-0.2.5.tgz` through Desktop
 
 pnpm 11+ may require a decision about the `protobufjs` install script. The dsh Plugins page offers **Allow these scripts and retry**. That script only checks dependent version ranges. Alternatively, explicitly set `allowBuilds.protobufjs: false` in this profile's `pnpm-workspace.yaml` and retry; the plugin is tested with that script denied. Preserve other workspace settings.
 
-Restart `dsh --profile web`, open **Plugins** in the sidebar, and select **dsh-feishu-im**. In Desktop and newer Web hosts, configuration appears directly below the plugin description and above **Included components**. On older dsh, open **Settings → Plugins → Feishu IM** and expand the card's arrow instead. The channel runs beside the existing Web application runner.
+Restart `dsh --profile web` after installing into the Web profile, then follow the illustrated setup below. The channel runs beside the existing Web application runner.
 
 ## Connect a bot
 
-Use the configuration on the **dsh-feishu-im** detail page and choose **Create a bot with QR** or **Bind an existing app**. The default workspace `~/dsh-workspaces/feishu-im` is created automatically. No directory input is required; use `/dsh cd PATH` in chat to change it.
+Setup has three steps: **open the configuration page → connect a bot → authorize your Feishu account**. Desktop and Web offer the same connection methods; configure the profile you actually use.
 
-**QR:** Select **Create a bot with QR → Generate QR code**, scan with Feishu and confirm on your phone. This official registration flow is subject to your organization's app creation permissions and administrator approval. Credentials are saved on success. When Feishu returns the scanner's open_id, only that user is authorized; otherwise authorize with a pairing code.
+### 1. Open the configuration page
 
-**Existing application:** Create an enterprise self-built app in the [Feishu developer console](https://open.feishu.cn/app), enable its bot capability, select **long connection** under Events & Callbacks, configure the following and publish an app version:
+| Host | Where to configure |
+| --- | --- |
+| Desktop / newer Web | Sidebar **Plugins → dsh-feishu-im**. The configuration sits between the plugin description and **Included components**. |
+| Older Web, such as dsh `0.1.5-rc.2` | **Settings → Plugins → Plugin configuration → Feishu IM**. Click the card or its right-hand arrow to expand it. |
+
+**Desktop: bind an existing application on the plugin detail page.** Only App ID and App Secret are required.
+
+![Desktop plugin detail page showing the description, two connection methods, App ID and App Secret fields, and Save and connect button](docs/screenshots/desktop-plugin-settings.png)
+
+**Web: expand the Feishu IM card alongside the built-in plugin settings.**
+
+![Web Settings → Plugins page with the Feishu IM card and its expand arrow above Terminal and other built-in plugins](docs/screenshots/web-plugin-settings.png)
+
+These screenshots show plugin `0.2.5` in the Chinese UI: Desktop on dsh `0.2.0-rc.2`, Web on `0.1.5-rc.2`. They are cropped; application and user identifiers are redacted, and the home directory is abbreviated as `~`. They show an already-connected bot; complete the steps below for first-time setup.
+
+### 2. Choose one connection method
+
+| Method | What you need | Action |
+| --- | --- | --- |
+| **Create a bot with QR** | Feishu on your phone; permission to create an application in your organization | Generate a QR code, scan it and confirm on your phone. |
+| **Bind an existing app** | A published Feishu bot application, its App ID and App Secret | Enter the two values and click **Save and connect**. |
+
+**Create a bot with QR:** Select **Create a bot with QR → Generate QR code**. Scan the generated code with Feishu and confirm on your phone. Credentials are saved on success. This official registration flow is subject to your organization's app creation permissions and administrator approval; use an existing application if it is unavailable.
+
+![Expanded Web Feishu IM settings showing Create a bot with QR, Generate QR code, the default workspace, authorized users and Generate pairing code](docs/screenshots/web-bot-connection.png)
+
+When Feishu returns the scanner's open_id, only that user is authorized. Otherwise, complete pairing in step 3. Feishu controls availability of QR permission/callback prefilling. If messages or card actions do not arrive after registration, verify the settings below, long-connection mode and publication status in the developer console.
+
+**Bind an existing app:** In the [Feishu developer console](https://open.feishu.cn/app), create an enterprise self-built app or open your existing one. Enable its bot capability, select **long connection** under Events & Callbacks, configure the following and publish an app version:
 
 | Type | Identifiers |
 | --- | --- |
@@ -48,9 +76,19 @@ Use the configuration on the **dsh-feishu-im** detail page and choose **Create a
 
 Choose **Bind an existing app**, enter only App ID and App Secret, then **Save and connect**. International Lark applications can set `apiOrigin` through [advanced configuration](docs/configuration.md). Saved secrets never return to the browser; a blank secret keeps the existing value only for the same App ID.
 
-When no user is authorized, saving automatically displays a `/dsh pair …` command. Once connected, send it to the bot from your own private chat. Codes expire after ten minutes and work once. Existing authorizations for the same app are preserved; replacing the app clears them by default. Generate another code on the same page to add a user. After pairing, send a task.
+No user OAuth login or public callback server is required for either method.
 
-Feishu controls availability of QR permission/callback prefilling. If messages or card actions do not arrive after registration, verify the listed settings, long-connection mode and publication status in the developer console. No user OAuth login or public callback server is required.
+### 3. Authorize your account and send a task
+
+**Connected** means the bot connection is ready; your Feishu account must also appear under **Authorized users** before it can start tasks.
+
+1. Wait for **Connected**. If QR registration already authorized your account, skip pairing.
+2. Otherwise, copy the complete `/dsh pair …` command from the configuration page and send it to the bot in a **private chat using your own Feishu account**. Saving an app with no authorized users displays a code automatically; use **Generate pairing code** if you need another. Each code expires after ten minutes and works once.
+3. After the bot confirms pairing, send `/dsh status` to check the directory, then a task such as “List the files in the current working directory.”
+
+The default workspace `~/dsh-workspaces/feishu-im` is created automatically; no directory input is required during setup. To work on an existing project, send `/dsh cd /Users/you/projects/my-project` in the bot chat before your task, replacing the example with an existing directory. See [Use](#use) for task and directory commands.
+
+Existing authorizations for the same app are preserved; replacing the app clears them by default. Generate another pairing code on the same page to add a user. Only explicitly authorized private chats can start tasks.
 
 ## Use
 
